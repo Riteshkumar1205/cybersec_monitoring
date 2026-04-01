@@ -1,0 +1,2016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CyberSentinel — Tamper-Evident Security Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#08090d;--bg2:#0e1017;--bg3:#13151f;--bg4:#1a1d2a;
+  --border:#1e2235;--border2:#252a3d;
+  --text:#e2e6f3;--text2:#8892b0;--text3:#4a5270;
+  --green:#00ff87;--green2:#00c96a;--green3:#003d20;
+  --red:#ff3b5c;--red2:#c4203e;--red3:#3d0010;
+  --amber:#ffaa00;--amber2:#c47f00;--amber3:#3d2700;
+  --blue:#3b82f6;--blue2:#1d4ed8;--blue3:#0f1f4a;
+  --cyan:#22d3ee;--cyan3:#0a2a30;                                                             
+  --purple:#a855f7;--purple3:#1e0a30;
+  --font-mono:'JetBrains Mono',monospace;
+  --font-display:'Syne',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-mono);overflow-x:hidden}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* LAYOUT */
+.app{display:grid;grid-template-rows:56px 1fr;height:100vh}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:var(--bg2);border-bottom:1px solid var(--border);position:relative;z-index:100}
+.topbar-left{display:flex;align-items:center;gap:14px}
+.logo{font-family:var(--font-display);font-size:18px;font-weight:800;color:var(--green);letter-spacing:-0.5px}
+.logo span{color:var(--text2);font-weight:400}
+.status-pill{display:flex;align-items:center;gap:6px;font-size:11px;padding:4px 10px;border-radius:100px;border:1px solid}
+.status-pill.ok{color:var(--green);border-color:var(--green3);background:rgba(0,255,135,0.06)}
+.status-pill.warn{color:var(--amber);border-color:var(--amber3);background:rgba(255,170,0,0.06)}
+.status-pill.crit{color:var(--red);border-color:var(--red3);background:rgba(255,59,92,0.08)}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.dot.pulse{animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.topbar-right{display:flex;align-items:center;gap:16px;font-size:11px;color:var(--text2)}
+.clock{font-variant-numeric:tabular-nums}
+
+.main{display:grid;grid-template-columns:220px 1fr 280px;height:calc(100vh - 56px);overflow:hidden}
+
+/* SIDEBAR */
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:12px 0;overflow-y:auto}
+.nav-section{padding:0 12px;margin-bottom:4px}
+.nav-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;padding:10px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text2);transition:all 0.15s;border:1px solid transparent;margin-bottom:1px}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--bg3);color:var(--green);border-color:var(--border)}
+.nav-icon{width:14px;text-align:center;font-size:12px}
+.nav-badge{margin-left:auto;font-size:9px;padding:2px 6px;border-radius:100px;background:var(--red3);color:var(--red)}
+
+.sidebar-stats{padding:12px;margin:8px 12px 0;background:var(--bg3);border-radius:8px;border:1px solid var(--border)}
+.ss-row{display:flex;justify-content:space-between;font-size:11px;padding:3px 0}
+.ss-val{font-weight:700;color:var(--text)}
+.ss-val.ok{color:var(--green)}
+.ss-val.warn{color:var(--amber)}
+.ss-val.bad{color:var(--red)}
+
+/* CENTER */
+.center{display:flex;flex-direction:column;overflow:hidden}
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg2);padding:0 16px}
+.tab{font-size:12px;padding:12px 16px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;transition:all 0.15s;white-space:nowrap}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--green);border-bottom-color:var(--green)}
+.tab-content{display:none;flex:1;overflow-y:auto;padding:16px}
+.tab-content.active{display:flex;flex-direction:column;gap:12px}
+
+/* METRICS ROW */
+.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.metric-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+.mc-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.mc-val{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.mc-sub{font-size:10px;color:var(--text3);margin-top:2px}
+.mc-val.ok{color:var(--green)}
+.mc-val.warn{color:var(--amber)}
+.mc-val.crit{color:var(--red)}
+.mc-val.info{color:var(--cyan)}
+
+/* LOG TABLE */
+.log-table-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.log-header{display:grid;grid-template-columns:40px 130px 90px 70px 1fr 160px 80px;gap:0;padding:8px 12px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px}
+.log-body{max-height:340px;overflow-y:auto}
+.log-row{display:grid;grid-template-columns:40px 130px 90px 70px 1fr 160px 80px;gap:0;padding:7px 12px;border-bottom:1px solid var(--border);font-size:11px;cursor:pointer;transition:background 0.1s;align-items:center}
+.log-row:hover{background:var(--bg3)}
+.log-row.crit{border-left:2px solid var(--red)}
+.log-row.warn{border-left:2px solid var(--amber)}
+.log-row.info{border-left:2px solid var(--blue)}
+.log-row.ok{border-left:2px solid var(--green)}
+.log-row.tampered{background:rgba(255,59,92,0.06);border-left:2px solid var(--red)}
+.log-row.selected{background:var(--bg4)}
+.seq-num{font-size:10px;color:var(--text3)}
+.ts{color:var(--text2);font-size:10px}
+.sev-badge{font-size:10px;padding:2px 7px;border-radius:100px;font-weight:500;display:inline-block}
+.sev-CRITICAL{background:var(--red3);color:var(--red)}
+.sev-HIGH{background:rgba(255,100,0,0.15);color:#ff6400}
+.sev-MEDIUM{background:var(--amber3);color:var(--amber)}
+.sev-LOW{background:var(--blue3);color:var(--blue)}
+.sev-INFO{background:var(--bg4);color:var(--text2)}
+.hash-short{color:var(--text3);font-size:10px;font-family:var(--font-mono)}
+.integrity-ok{color:var(--green);font-size:10px}
+.integrity-bad{color:var(--red);font-size:10px}
+
+/* DETAIL PANEL */
+.detail-panel{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px}
+.dp-title{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;border-bottom:1px solid var(--border);padding-bottom:8px}
+.dp-row{display:flex;gap:8px;padding:5px 0;font-size:11px;border-bottom:1px solid rgba(30,34,53,0.5)}
+.dp-row:last-child{border-bottom:none}
+.dp-key{color:var(--text3);min-width:110px;flex-shrink:0}
+.dp-val{color:var(--text);word-break:break-all;line-height:1.4}
+.dp-val.hash{color:var(--cyan);font-size:10px}
+.dp-val.bad{color:var(--red)}
+.dp-val.ok{color:var(--green)}
+
+/* RIGHT PANEL */
+.rightpanel{background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.rp-section{border-bottom:1px solid var(--border);padding:12px}
+.rp-title{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px}
+.threat-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px}
+.threat-item:last-child{border-bottom:none}
+.threat-icon{font-size:12px;flex-shrink:0;margin-top:1px}
+.threat-desc{color:var(--text);line-height:1.4;flex:1}
+.threat-time{color:var(--text3);font-size:10px;margin-top:2px}
+.threat-src{color:var(--text2);font-size:10px}
+
+/* ANOMALY FEED */
+.anomaly-feed{flex:1;overflow-y:auto;padding:12px}
+.af-item{padding:8px 10px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px;font-size:11px;cursor:pointer;transition:border-color 0.15s}
+.af-item:hover{border-color:var(--border2)}
+.af-item.crit{border-left:3px solid var(--red)}
+.af-item.warn{border-left:3px solid var(--amber)}
+.af-item.info{border-left:3px solid var(--blue)}
+.af-top{display:flex;justify-content:space-between;margin-bottom:3px}
+.af-type{font-weight:700;color:var(--text)}
+.af-time{color:var(--text3);font-size:10px}
+.af-desc{color:var(--text2);line-height:1.4}
+.af-meta{color:var(--text3);font-size:10px;margin-top:3px}
+
+/* FORMS */
+.add-form{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg.full{grid-column:1/-1}
+.fg label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px}
+.fg select,.fg input,.fg textarea{background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-mono);font-size:12px;padding:7px 10px;width:100%;outline:none;transition:border-color 0.15s}
+.fg select:focus,.fg input:focus,.fg textarea:focus{border-color:var(--border2)}
+.fg textarea{resize:vertical;min-height:54px}
+.btn-row{display:flex;gap:8px;margin-top:4px}
+.btn{padding:8px 16px;border-radius:6px;font-family:var(--font-mono);font-size:12px;font-weight:500;cursor:pointer;border:1px solid;transition:all 0.15s}
+.btn:hover{opacity:0.85}
+.btn-green{background:rgba(0,255,135,0.1);color:var(--green);border-color:var(--green3)}
+.btn-red{background:rgba(255,59,92,0.1);color:var(--red);border-color:var(--red3)}
+.btn-amber{background:rgba(255,170,0,0.1);color:var(--amber);border-color:var(--amber3)}
+.btn-cyan{background:rgba(34,211,238,0.1);color:var(--cyan);border-color:var(--cyan3)}
+.btn-ghost{background:transparent;color:var(--text2);border-color:var(--border)}
+.btn-sm{padding:5px 10px;font-size:11px}
+
+/* CHAIN VIZ */
+.chain-row{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:8px 0}
+.chain-block{padding:3px 9px;border-radius:4px;font-size:10px;border:1px solid var(--border);color:var(--text2);background:var(--bg3);white-space:nowrap;cursor:pointer;transition:border-color 0.15s}
+.chain-block:hover{border-color:var(--border2)}
+.chain-block.ok{border-color:rgba(0,255,135,0.2);color:var(--green)}
+.chain-block.bad{border-color:var(--red3);background:var(--red3);color:var(--red)}
+.chain-link{color:var(--text3);font-size:10px}
+
+/* ATTACK SIMULATION */
+.attack-panel{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.attack-btn{padding:10px;border:1px solid var(--border);border-radius:6px;background:var(--bg3);color:var(--text2);font-family:var(--font-mono);font-size:11px;cursor:pointer;text-align:left;transition:all 0.15s}
+.attack-btn:hover{border-color:var(--red3);color:var(--red);background:var(--red3)}
+.attack-name{font-weight:700;margin-bottom:2px;font-size:12px}
+.attack-desc{font-size:10px;line-height:1.4;opacity:0.7}
+
+/* STATUS BAR */
+.notify{position:fixed;top:64px;right:16px;z-index:1000;max-width:400px;padding:10px 14px;border-radius:8px;font-size:12px;border:1px solid;animation:slideIn 0.3s ease;display:none}
+.notify.ok{background:rgba(0,255,135,0.1);color:var(--green);border-color:var(--green3)}
+.notify.bad{background:rgba(255,59,92,0.1);color:var(--red);border-color:var(--red3)}
+.notify.warn{background:rgba(255,170,0,0.1);color:var(--amber);border-color:var(--amber3)}
+@keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:none;opacity:1}}
+
+/* NETWORK MAP */
+.netmap{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;position:relative;height:220px;overflow:hidden}
+.node{position:absolute;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}
+.node-dot{width:12px;height:12px;border-radius:50%;border:2px solid}
+.node-label{font-size:9px;color:var(--text2);white-space:nowrap}
+.node-dot.ok{background:rgba(0,255,135,0.2);border-color:var(--green)}
+.node-dot.warn{background:rgba(255,170,0,0.2);border-color:var(--amber)}
+.node-dot.bad{background:rgba(255,59,92,0.2);border-color:var(--red);animation:nodepulse 1s infinite}
+@keyframes nodepulse{0%,100%{box-shadow:0 0 0 0 rgba(255,59,92,0.4)}50%{box-shadow:0 0 0 6px rgba(255,59,92,0)}}
+canvas{position:absolute;top:0;left:0;width:100%;height:100%}
+
+/* THREAT INTEL */
+.ioc-row{display:grid;grid-template-columns:90px 1fr 60px 70px;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;align-items:center}
+.ioc-row:last-child{border-bottom:none}
+.ioc-type{font-size:10px;padding:2px 6px;border-radius:4px;text-align:center}
+.ioc-ip{background:var(--blue3);color:var(--blue)}
+.ioc-hash{background:var(--purple3);color:var(--purple)}
+.ioc-domain{background:var(--cyan3);color:var(--cyan)}
+.ioc-val{color:var(--text);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ioc-score{font-weight:700}
+.ioc-score.high{color:var(--red)}
+.ioc-score.med{color:var(--amber)}
+.risk-bar{height:4px;border-radius:2px;background:var(--bg4);overflow:hidden}
+.risk-fill{height:100%;border-radius:2px;transition:width 0.5s}
+
+/* COMPLIANCE */
+.compliance-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.comp-item{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px}
+.comp-name{font-size:11px;font-weight:700;color:var(--text);margin-bottom:4px}
+.comp-score{font-size:20px;font-weight:700;margin-bottom:4px}
+.comp-bar{height:3px;background:var(--bg4);border-radius:2px;overflow:hidden;margin-bottom:4px}
+.comp-fill{height:100%;border-radius:2px}
+.comp-status{font-size:10px}
+
+/* ANIMATIONS */
+@keyframes scanline{0%{top:-2px}100%{top:100%}}
+.live-indicator::before{content:'';display:inline-block;width:6px;height:6px;background:var(--red);border-radius:50%;margin-right:6px;animation:pulse 1s infinite}
+
+/* SCROLLBAR for log body */
+.log-body::-webkit-scrollbar{width:3px}
+.log-body::-webkit-scrollbar-thumb{background:var(--border)}
+
+/* TAMPERING INCIDENT PANEL */
+.incident-panel{background:rgba(255,59,92,0.06);border:1px solid var(--red2);border-radius:8px;padding:14px;margin-bottom:8px}
+.incident-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid rgba(255,59,92,0.2)}
+.incident-title{font-size:13px;font-weight:700;color:var(--red)}
+.incident-badge{font-size:10px;padding:2px 8px;border-radius:100px;background:var(--red3);color:var(--red);border:1px solid var(--red2);margin-left:auto}
+.incident-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.inc-block{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px}
+.inc-block-title{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.inc-field{display:flex;gap:6px;padding:3px 0;font-size:11px;border-bottom:1px solid rgba(30,34,53,0.5)}
+.inc-field:last-child{border-bottom:none}
+.inc-key{color:var(--text3);min-width:100px;flex-shrink:0;font-size:10px}
+.inc-val{color:var(--text);word-break:break-all;line-height:1.4}
+.inc-val.bad{color:var(--red)}
+.inc-val.ok{color:var(--green)}
+.inc-val.warn{color:var(--amber)}
+.inc-val.info{color:var(--cyan)}
+.inc-val.hash{color:var(--cyan);font-size:10px;font-family:var(--font-mono)}
+.hash-compare{background:var(--bg4);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px}
+.hc-title{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px}
+.hc-row{display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-size:11px}
+.hc-label{min-width:100px;color:var(--text3);font-size:10px;flex-shrink:0;margin-top:1px}
+.hc-hash{font-family:var(--font-mono);font-size:10px;word-break:break-all;line-height:1.5}
+.hc-hash.expected{color:var(--green)}
+.hc-hash.actual{color:var(--red)}
+.impact-block{background:var(--red3);border:1px solid rgba(255,59,92,0.2);border-radius:6px;padding:10px;margin-bottom:10px}
+.impact-title{font-size:10px;color:var(--red);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;font-weight:700}
+.impact-item{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:11px;color:var(--text2)}
+.impact-item::before{content:'→';color:var(--red);flex-shrink:0}
+.mitre-tag{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:4px;background:var(--purple3);border:1px solid rgba(168,85,247,0.3);color:var(--purple);font-size:11px;font-weight:700;margin-top:6px}
+.detection-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:4px}
+.detection-table th{text-align:left;padding:6px 8px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);font-weight:400}
+.detection-table td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.detection-table tr:last-child td{border-bottom:none}
+.detection-table tr:hover td{background:var(--bg3)}
+.access-point-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:500}
+.apb-webui{background:rgba(59,130,246,0.15);color:var(--blue);border:1px solid rgba(59,130,246,0.2)}
+.apb-api{background:rgba(168,85,247,0.15);color:var(--purple);border:1px solid rgba(168,85,247,0.2)}
+.apb-db{background:rgba(255,170,0,0.15);color:var(--amber);border:1px solid rgba(255,170,0,0.2)}
+.apb-cli{background:rgba(34,211,238,0.15);color:var(--cyan);border:1px solid rgba(34,211,238,0.2)}
+.actor-insider{color:var(--red);font-weight:700}
+.actor-external{color:var(--amber);font-weight:700}
+.auth-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 7px;border-radius:100px}
+.auth-ok{background:rgba(0,255,135,0.1);color:var(--green);border:1px solid var(--green3)}
+.auth-fail{background:rgba(255,59,92,0.1);color:var(--red);border:1px solid var(--red3)}
+.incident-log-item{padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.1s}
+.incident-log-item:hover{background:var(--bg3)}
+.incident-log-item:last-child{border-bottom:none}
+.section-divider{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;padding:8px 0 4px;border-bottom:1px solid var(--border);margin-bottom:8px}
+
+/* ── LIVE MONITOR TAB ── */
+.monitor-grid{display:grid;grid-template-columns:1fr 300px;gap:10px}
+.activity-stream{overflow-y:auto;display:flex;flex-direction:column;gap:4px;max-height:480px}
+.act-item{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:start;padding:9px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:all 0.15s;position:relative;overflow:hidden}
+.act-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px}
+.act-item.file-read::before{background:var(--blue)}
+.act-item.file-write::before{background:var(--amber)}
+.act-item.file-delete::before{background:var(--red)}
+.act-item.file-exec::before{background:var(--purple)}
+.act-item.net-out::before{background:var(--red)}
+.act-item.net-in::before{background:var(--cyan)}
+.act-item.auth-evt::before{background:var(--green)}
+.act-item.proc-spawn::before{background:#ff6400}
+.act-item.reg-mod::before{background:var(--amber)}
+.act-item:hover{border-color:var(--border2);background:var(--bg4)}
+.act-item.pending{border-color:var(--amber2);background:rgba(255,170,0,0.06);animation:borderPulse 1.5s infinite}
+.act-item.blocked-state{border-color:var(--red2);background:rgba(255,59,92,0.05);opacity:0.75}
+.act-item.allowed-state{border-color:var(--green2);background:rgba(0,255,135,0.03)}
+@keyframes borderPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,170,0,0.3)}50%{box-shadow:0 0 0 4px rgba(255,170,0,0)}}
+.act-icon{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:1px}
+.act-icon.file-read{background:rgba(59,130,246,0.15)}
+.act-icon.file-write{background:rgba(255,170,0,0.15)}
+.act-icon.file-delete{background:rgba(255,59,92,0.15)}
+.act-icon.file-exec{background:rgba(168,85,247,0.15)}
+.act-icon.net-out{background:rgba(255,59,92,0.15)}
+.act-icon.net-in{background:rgba(34,211,238,0.15)}
+.act-icon.auth-evt{background:rgba(0,255,135,0.12)}
+.act-icon.proc-spawn{background:rgba(255,100,0,0.15)}
+.act-icon.reg-mod{background:rgba(255,170,0,0.15)}
+.act-body{min-width:0}
+.act-title{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act-path{font-size:10px;color:var(--text2);font-family:var(--font-mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.act-meta{display:flex;gap:6px;margin-top:3px;flex-wrap:wrap}
+.act-tag{font-size:10px;padding:1px 6px;border-radius:3px}
+.act-ip{background:rgba(59,130,246,0.15);color:var(--blue)}
+.act-user{background:rgba(0,255,135,0.1);color:var(--green)}
+.act-pid{background:var(--bg4);color:var(--text3)}
+.act-time{font-size:10px;color:var(--text3);white-space:nowrap}
+.act-controls{display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0}
+.btn-allow{padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid var(--green3);background:rgba(0,255,135,0.1);color:var(--green);font-family:var(--font-mono);transition:all 0.15s;white-space:nowrap}
+.btn-allow:hover{background:rgba(0,255,135,0.2)}
+.btn-block{padding:3px 10px;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;border:1px solid var(--red3);background:rgba(255,59,92,0.1);color:var(--red);font-family:var(--font-mono);transition:all 0.15s;white-space:nowrap}
+.btn-block:hover{background:rgba(255,59,92,0.2)}
+.decision-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap}
+.decision-badge.allowed{background:rgba(0,255,135,0.15);color:var(--green);border:1px solid var(--green3)}
+.decision-badge.blocked{background:rgba(255,59,92,0.15);color:var(--red);border:1px solid var(--red3)}
+.pc-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.pc-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px}
+.pc-card-label{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
+.pc-card-val{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.pc-card-sub{font-size:10px;color:var(--text3);margin-top:1px}
+.pc-list{display:flex;flex-direction:column;gap:4px;max-height:210px;overflow-y:auto}
+.pc-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:5px;background:var(--bg3);border:1px solid var(--border);font-size:11px;cursor:pointer;transition:background 0.15s}
+.pc-item:hover{background:var(--bg4)}
+.pc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.pc-dot.online{background:var(--green);box-shadow:0 0 5px rgba(0,255,135,0.5)}
+.pc-dot.warning{background:var(--amber);box-shadow:0 0 5px rgba(255,170,0,0.5)}
+.pc-dot.compromised{background:var(--red);box-shadow:0 0 5px rgba(255,59,92,0.5);animation:pulse 1s infinite}
+.pc-name{flex:1;color:var(--text);font-weight:600;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc-ip-label{font-size:10px;color:var(--text3)}
+.pc-events{font-size:10px;font-weight:700;margin-left:auto}
+.pc-events.ok{color:var(--green)}
+.pc-events.warn{color:var(--amber)}
+.pc-events.bad{color:var(--red)}
+.alert-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:7px;font-size:12px;border:1px solid;margin-bottom:5px;animation:slideIn 0.3s ease}
+.alert-banner.crit{background:rgba(255,59,92,0.08);border-color:rgba(255,59,92,0.4);color:var(--red)}
+.alert-banner.warn{background:rgba(255,170,0,0.08);border-color:rgba(255,170,0,0.4);color:var(--amber)}
+.alert-close{margin-left:auto;cursor:pointer;opacity:0.6}
+.alert-close:hover{opacity:1}
+.filter-chip{padding:4px 10px;border-radius:100px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--bg3);color:var(--text2);transition:all 0.15s;font-family:var(--font-mono)}
+.filter-chip:hover{border-color:var(--border2);color:var(--text)}
+.filter-chip.active{border-color:var(--cyan);color:var(--cyan);background:rgba(34,211,238,0.08)}
+.risk-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:11px}
+.risk-bar-label{min-width:72px;color:var(--text2);flex-shrink:0;font-size:10px}
+.risk-bar-track{flex:1;height:5px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.risk-bar-fill{height:100%;border-radius:3px;transition:width 0.6s}
+.risk-bar-val{min-width:28px;text-align:right;font-weight:700;font-size:11px}
+.blocked-row{display:grid;grid-template-columns:100px 1fr 55px 60px;gap:6px;padding:5px 8px;border-bottom:1px solid var(--border);font-size:11px;align-items:center}
+.blocked-row:last-child{border-bottom:none}
+</style>
+</head>
+<body>
+<div id="notify" class="notify"></div>
+
+<div class="app">
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">CyberSentinel <span>/ SOC Platform</span></div>
+    <div class="status-pill ok" id="global-status"><span class="dot pulse"></span><span id="global-status-text">ALL SYSTEMS NOMINAL</span></div>
+    <div class="status-pill warn" style="display:none" id="incident-pill"><span class="dot pulse"></span><span id="incident-count">0 ACTIVE INCIDENTS</span></div>
+  </div>
+  <div class="topbar-right">
+    <span>CHAIN: <span id="chain-health" style="color:var(--green);font-weight:700">INTACT</span></span>
+    <span>ENTRIES: <span id="total-entries" style="color:var(--text);font-weight:700">0</span></span>
+    <span>THREATS: <span id="threat-count" style="color:var(--red);font-weight:700">0</span></span>
+    <span class="clock" id="clock">--:--:--</span>
+    <span style="color:var(--text3)">UTC</span>
+  </div>
+</div>
+
+<div class="main">
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="nav-section">
+    <div class="nav-label">Monitor</div>
+    <div class="nav-item active" onclick="switchTab('dashboard')"><span class="nav-icon">◈</span> Dashboard</div>
+    <div class="nav-item" onclick="switchTab('livemon')"><span class="nav-icon">◉</span> Live Monitor <span class="nav-badge" id="nav-badge-livemon" style="display:none">0</span></div>
+    <div class="nav-item" onclick="switchTab('logs')"><span class="nav-icon">≡</span> Audit Logs <span class="nav-badge" id="nav-badge-logs">0</span></div>
+    <div class="nav-item" onclick="switchTab('threats')"><span class="nav-icon">⚠</span> Threat Intel</div>
+    <div class="nav-item" onclick="switchTab('network')"><span class="nav-icon">◎</span> Network Map</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Security</div>
+    <div class="nav-item" onclick="switchTab('integrity')"><span class="nav-icon">⛓</span> Chain Integrity</div>
+    <div class="nav-item" onclick="switchTab('compliance')"><span class="nav-icon">✓</span> Compliance</div>
+    <div class="nav-item" onclick="switchTab('attacks')"><span class="nav-icon">☣</span> Attack Sim</div>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Add Entry</div>
+    <div class="nav-item" onclick="switchTab('addentry')"><span class="nav-icon">+</span> Log Event</div>
+  </div>
+
+  <div class="sidebar-stats">
+    <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Chain Stats</div>
+    <div class="ss-row"><span style="color:var(--text2)">Entries</span><span class="ss-val" id="ss-entries">0</span></div>
+    <div class="ss-row"><span style="color:var(--text2)">Verified</span><span class="ss-val ok" id="ss-verified">0</span></div>
+    <div class="ss-row"><span style="color:var(--text2)">Tampered</span><span class="ss-val bad" id="ss-tampered">0</span></div>
+    <div class="ss-row"><span style="color:var(--text2)">Critical</span><span class="ss-val bad" id="ss-critical">0</span></div>
+    <div class="ss-row"><span style="color:var(--text2)">Integrity</span><span class="ss-val ok" id="ss-integrity">100%</span></div>
+  </div>
+</div>
+
+<!-- CENTER CONTENT -->
+<div class="center">
+  <div class="tabs">
+    <div class="tab active" id="tab-dashboard">Dashboard</div>
+    <div class="tab" id="tab-livemon" style="color:var(--red)">◉ Live Monitor</div>
+    <div class="tab" id="tab-logs">Audit Logs</div>
+    <div class="tab" id="tab-threats">Threat Intel</div>
+    <div class="tab" id="tab-network">Network Map</div>
+    <div class="tab" id="tab-integrity">Chain Integrity</div>
+    <div class="tab" id="tab-compliance">Compliance</div>
+    <div class="tab" id="tab-attacks">Attack Sim</div>
+    <div class="tab" id="tab-addentry">+ Log Event</div>
+  </div>
+
+  <!-- DASHBOARD TAB -->
+  <div class="tab-content active" id="content-dashboard">
+    <div class="metrics">
+      <div class="metric-card"><div class="mc-label">Events (24h)</div><div class="mc-val info" id="mc-events">0</div><div class="mc-sub">Total log entries</div></div>
+      <div class="metric-card"><div class="mc-label">Critical Alerts</div><div class="mc-val crit" id="mc-critical">0</div><div class="mc-sub">Requires immediate action</div></div>
+      <div class="metric-card"><div class="mc-label">File Activity</div><div class="mc-val warn" id="mc-fileact">0</div><div class="mc-sub">Read/Write/Exec events</div></div>
+      <div class="metric-card"><div class="mc-label">Blocked IPs</div><div class="mc-val crit" id="mc-blocked">0</div><div class="mc-sub">Exfil attempts blocked</div></div>
+      <div class="metric-card"><div class="mc-label">Brute Force</div><div class="mc-val warn" id="mc-brute">0</div><div class="mc-sub">Failed auth attempts</div></div>
+      <div class="metric-card"><div class="mc-label">Data Exfil</div><div class="mc-val crit" id="mc-exfil">0</div><div class="mc-sub">Suspected leaks</div></div>
+      <div class="metric-card"><div class="mc-label">Chain Health</div><div class="mc-val ok" id="mc-chain">100%</div><div class="mc-sub">Integrity score</div></div>
+    </div>
+    <!-- Dashboard alert banners injected here -->
+    <div id="dash-alerts"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="log-table-wrap">
+        <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text2);display:flex;justify-content:space-between;align-items:center">
+          <span style="font-weight:700">RECENT CRITICAL EVENTS</span>
+          <span class="live-indicator" style="font-size:10px;color:var(--text3)">LIVE</span>
+        </div>
+        <div class="log-body" id="recent-critical" style="max-height:220px"></div>
+      </div>
+      <div class="log-table-wrap">
+        <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text2)">THREAT CATEGORY BREAKDOWN</div>
+        <div id="threat-breakdown" style="padding:12px"></div>
+      </div>
+    </div>
+
+    <div class="log-table-wrap">
+      <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text2);display:flex;justify-content:space-between">
+        <span style="font-weight:700">LIVE ACTIVITY STREAM</span>
+        <button class="btn btn-ghost btn-sm" onclick="verifyChain()">Verify Chain</button>
+      </div>
+      <div class="log-header">
+        <span>#</span><span>Timestamp</span><span>Severity</span><span>Category</span><span>Description</span><span>Hash (preview)</span><span>Integrity</span>
+      </div>
+      <div class="log-body" id="log-list-main"></div>
+    </div>
+  </div>
+
+  <!-- LIVE MONITOR TAB -->
+  <div class="tab-content" id="content-livemon">
+    <!-- Alert banners for exfil attempts -->
+    <div id="lm-alerts"></div>
+
+    <!-- Filter bar -->
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:2px">
+      <span style="font-size:11px;color:var(--text3)">Filter:</span>
+      <span class="filter-chip active" onclick="setActFilter('all',this)">All</span>
+      <span class="filter-chip" onclick="setActFilter('file-read',this)">📄 File Read</span>
+      <span class="filter-chip" onclick="setActFilter('file-write',this)">✏️ File Write</span>
+      <span class="filter-chip" onclick="setActFilter('file-delete',this)">🗑️ File Delete</span>
+      <span class="filter-chip" onclick="setActFilter('file-exec',this)">⚡ Exec</span>
+      <span class="filter-chip" onclick="setActFilter('net-out',this)">🔴 Net Out</span>
+      <span class="filter-chip" onclick="setActFilter('proc-spawn',this)">🔧 Process</span>
+      <span class="filter-chip" onclick="setActFilter('auth-evt',this)">🔑 Auth</span>
+      <span style="margin-left:auto;display:flex;gap:6px">
+        <button class="btn btn-red btn-sm" onclick="blockAllPending()">Block All Pending</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearActivityFeed()">Clear Feed</button>
+      </span>
+    </div>
+
+    <div class="monitor-grid">
+      <!-- LEFT: Activity Stream -->
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="log-table-wrap">
+          <div style="padding:8px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:11px;font-weight:700;color:var(--text2)">
+              <span class="live-indicator" style="font-size:10px">REAL-TIME</span> PC ACTIVITY STREAM
+            </span>
+            <span style="font-size:10px;color:var(--text3)">Events auto-log to tamper chain • <span id="lm-event-count" style="color:var(--cyan)">0</span> captured</span>
+          </div>
+          <div class="activity-stream" id="activity-stream">
+            <div style="padding:20px;text-align:center;color:var(--text3);font-size:12px">
+              <div style="font-size:24px;margin-bottom:8px">◉</div>
+              Monitoring active — events will appear here in real-time<br>
+              <span style="font-size:10px">File access, network connections, process spawns, registry changes are tracked</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Blocked IPs table -->
+        <div class="log-table-wrap">
+          <div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text2);display:flex;align-items:center;justify-content:space-between">
+            <span>🛡️ BLOCKED SOURCES</span>
+            <span style="font-size:10px;color:var(--text3)"><span id="blocked-count" style="color:var(--red);font-weight:700">0</span> IPs blocked</span>
+          </div>
+          <div id="blocked-ip-table" style="padding:8px 12px;font-size:11px;color:var(--text3)">No sources blocked yet.</div>
+        </div>
+      </div>
+
+      <!-- RIGHT: PC Status + Stats -->
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <!-- Quick stats -->
+        <div class="pc-grid">
+          <div class="pc-card"><div class="pc-card-label">File Events</div><div class="pc-card-val" id="lm-file-cnt" style="color:var(--amber)">0</div><div class="pc-card-sub">Read/Write/Delete</div></div>
+          <div class="pc-card"><div class="pc-card-label">Net Events</div><div class="pc-card-val" id="lm-net-cnt" style="color:var(--red)">0</div><div class="pc-card-sub">Outbound/Inbound</div></div>
+          <div class="pc-card"><div class="pc-card-label">Pending Review</div><div class="pc-card-val" id="lm-pending-cnt" style="color:var(--amber)">0</div><div class="pc-card-sub">Awaiting decision</div></div>
+          <div class="pc-card"><div class="pc-card-label">Blocked</div><div class="pc-card-val" id="lm-blocked-cnt" style="color:var(--red)">0</div><div class="pc-card-sub">Actions stopped</div></div>
+        </div>
+
+        <!-- PC List -->
+        <div class="log-table-wrap">
+          <div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Monitored Endpoints</div>
+          <div style="padding:8px" id="pc-list">
+            <!-- populated by renderPcList() -->
+          </div>
+        </div>
+
+        <!-- Exfil risk gauge -->
+        <div class="log-table-wrap" style="padding:10px 12px">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">📊 Risk Indicators</div>
+          <div class="risk-bar-row"><span class="risk-bar-label">File Exfil</span><div class="risk-bar-track"><div class="risk-bar-fill" id="risk-fileexfil" style="width:0%;background:var(--red)"></div></div><span class="risk-bar-val" id="risk-fileexfil-val" style="color:var(--red)">0%</span></div>
+          <div class="risk-bar-row"><span class="risk-bar-label">Net Exfil</span><div class="risk-bar-track"><div class="risk-bar-fill" id="risk-netexfil" style="width:0%;background:var(--red)"></div></div><span class="risk-bar-val" id="risk-netexfil-val" style="color:var(--red)">0%</span></div>
+          <div class="risk-bar-row"><span class="risk-bar-label">Auth Abuse</span><div class="risk-bar-track"><div class="risk-bar-fill" id="risk-auth" style="width:0%;background:var(--amber)"></div></div><span class="risk-bar-val" id="risk-auth-val" style="color:var(--amber)">0%</span></div>
+          <div class="risk-bar-row"><span class="risk-bar-label">Priv Escalation</span><div class="risk-bar-track"><div class="risk-bar-fill" id="risk-privesc" style="width:0%;background:var(--amber)"></div></div><span class="risk-bar-val" id="risk-privesc-val" style="color:var(--amber)">0%</span></div>
+          <div class="risk-bar-row"><span class="risk-bar-label">Malware Sig</span><div class="risk-bar-track"><div class="risk-bar-fill" id="risk-malware" style="width:0%;background:var(--purple)"></div></div><span class="risk-bar-val" id="risk-malware-val" style="color:var(--purple)">0%</span></div>
+        </div>
+
+        <!-- Simulate activity button -->
+        <div class="log-table-wrap" style="padding:10px 12px">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">🔬 Simulate PC Activity</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="simFileRead()">📄 File Read</button>
+            <button class="btn btn-amber btn-sm" onclick="simFileWrite()">✏️ File Modify</button>
+            <button class="btn btn-red btn-sm" onclick="simNetExfil()">🌐 Net Exfil</button>
+            <button class="btn btn-ghost btn-sm" onclick="simProcSpawn()">⚙️ Proc Spawn</button>
+            <button class="btn btn-red btn-sm" onclick="simPrivEsc()">⬆️ Priv Escalation</button>
+            <button class="btn btn-amber btn-sm" onclick="simRegMod()">🔧 Registry Mod</button>
+          </div>
+          <button class="btn btn-red btn-sm" style="width:100%;margin-top:6px" onclick="simExfilBurst()">🚨 Simulate Full Exfil Burst</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGS TAB -->
+  <div class="tab-content" id="content-logs">
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="log-search" type="text" placeholder="Search logs..." style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-mono);font-size:12px;padding:7px 12px;flex:1;outline:none" oninput="renderFullLog()"/>
+      <select id="filter-sev" onchange="renderFullLog()" style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-family:var(--font-mono);font-size:12px;padding:7px 10px;outline:none">
+        <option value="">All Severities</option>
+        <option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option><option>INFO</option>
+      </select>
+      <select id="filter-cat" onchange="renderFullLog()" style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-family:var(--font-mono);font-size:12px;padding:7px 10px;outline:none">
+        <option value="">All Categories</option>
+        <option>AUTH</option><option>NETWORK</option><option>MALWARE</option><option>EXFIL</option><option>PRIV_ESC</option><option>RECON</option><option>POLICY</option><option>SYSTEM</option>
+      </select>
+      <button class="btn btn-cyan btn-sm" onclick="exportLog()">Export</button>
+    </div>
+    <div class="log-table-wrap">
+      <div class="log-header">
+        <span>#</span><span>Timestamp</span><span>Severity</span><span>Category</span><span>Description</span><span>Hash (preview)</span><span>Integrity</span>
+      </div>
+      <div class="log-body" id="log-list-full" style="max-height:500px"></div>
+    </div>
+    <div class="detail-panel" id="log-detail" style="display:none">
+      <div class="dp-title">Entry Detail</div>
+      <div id="log-detail-content"></div>
+    </div>
+  </div>
+
+  <!-- THREATS TAB -->
+  <div class="tab-content" id="content-threats">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="log-table-wrap">
+        <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text2)">INDICATORS OF COMPROMISE (IOC)</div>
+        <div style="padding:10px 12px" id="ioc-list"></div>
+      </div>
+      <div class="log-table-wrap">
+        <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text2)">MITRE ATT&CK DETECTIONS</div>
+        <div style="padding:10px 12px" id="mitre-list"></div>
+      </div>
+    </div>
+    <div class="log-table-wrap">
+      <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text2)">CORRELATED THREAT TIMELINE</div>
+      <div style="padding:12px" id="threat-timeline"></div>
+    </div>
+  </div>
+
+  <!-- NETWORK TAB -->
+  <div class="tab-content" id="content-network">
+    <div class="netmap" id="netmap">
+      <canvas id="netcanvas"></canvas>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div class="log-table-wrap">
+        <div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:10px;color:var(--text3);text-transform:uppercase">Top Source IPs</div>
+        <div style="padding:10px 12px" id="top-ips"></div>
+      </div>
+      <div class="log-table-wrap">
+        <div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:10px;color:var(--text3);text-transform:uppercase">Protocol Distribution</div>
+        <div style="padding:10px 12px" id="proto-dist"></div>
+      </div>
+      <div class="log-table-wrap">
+        <div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:10px;color:var(--text3);text-transform:uppercase">Geo Threat Origins</div>
+        <div style="padding:10px 12px" id="geo-dist"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTEGRITY TAB -->
+  <div class="tab-content" id="content-integrity">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+      <button class="btn btn-cyan" onclick="verifyChain()">Full Chain Verification</button>
+      <button class="btn btn-ghost" onclick="renderIntegrity()">Refresh View</button>
+    </div>
+    <div class="log-table-wrap" id="integrity-result" style="padding:12px;font-size:12px;color:var(--text2)">Run verification to see results.</div>
+    <div class="log-table-wrap">
+      <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text2)">HASH CHAIN VISUALIZATION</div>
+      <div style="padding:12px;max-height:200px;overflow-y:auto" id="chain-vis"></div>
+    </div>
+    <div class="detail-panel">
+      <div class="dp-title">Tamper Detection Algorithms Active</div>
+      <div id="algo-info"></div>
+    </div>
+  </div>
+
+  <!-- COMPLIANCE TAB -->
+  <div class="tab-content" id="content-compliance">
+    <div class="compliance-grid" id="compliance-grid"></div>
+    <div class="log-table-wrap" style="margin-top:0">
+      <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text2)">AUDIT TRAIL FOR REGULATORS</div>
+      <div style="padding:12px;font-size:11px;color:var(--text2)" id="audit-trail"></div>
+    </div>
+  </div>
+
+  <!-- ATTACK SIM TAB -->
+  <div class="tab-content" id="content-attacks">
+    <div style="background:var(--red3);border:1px solid var(--red2);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:4px">
+      ⚠ SIMULATION MODE — All attacks are performed on the in-memory log only. Run an attack then click Verify Chain to see full incident detail.
+    </div>
+    <div class="attack-panel" id="attack-panel"></div>
+
+    <!-- TAMPERING INCIDENT PANEL (shown after attack) -->
+    <div id="tampering-incident-panel" style="display:none">
+      <div class="section-divider">🚨 Latest Tampering Incident</div>
+      <div class="incident-panel">
+        <div class="incident-header">
+          <span style="font-size:18px">🚨</span>
+          <div>
+            <div class="incident-title" id="inc-title">Tampering Incident Detected</div>
+            <div style="font-size:10px;color:var(--text2);margin-top:2px" id="inc-ts"></div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+            <span class="incident-badge" id="inc-attack-type">LOG_TAMPERING</span>
+            <span id="inc-severity-badge" class="sev-badge sev-CRITICAL">CRITICAL</span>
+          </div>
+        </div>
+
+        <div class="incident-grid">
+          <!-- Tampering Metadata -->
+          <div class="inc-block">
+            <div class="inc-block-title">📋 Tampering Metadata</div>
+            <div class="inc-field"><span class="inc-key">Attack Type</span><span class="inc-val bad" id="inc-atk-type">—</span></div>
+            <div class="inc-field"><span class="inc-key">Target Entry</span><span class="inc-val" id="inc-target">—</span></div>
+            <div class="inc-field"><span class="inc-key">Field Modified</span><span class="inc-val warn" id="inc-field-mod">—</span></div>
+            <div class="inc-field"><span class="inc-key">Detection Method</span><span class="inc-val bad" id="inc-det-method">—</span></div>
+            <div class="inc-field"><span class="inc-key">Detected At</span><span class="inc-val" id="inc-det-at">—</span></div>
+            <div class="inc-field"><span class="inc-key">Severity</span><span class="inc-val bad" id="inc-sev-field">CRITICAL</span></div>
+          </div>
+
+          <!-- Access Point -->
+          <div class="inc-block">
+            <div class="inc-block-title">🔵 Access Point</div>
+            <div class="inc-field"><span class="inc-key">Source IP</span><span class="inc-val info" id="inc-src-ip">—</span></div>
+            <div class="inc-field"><span class="inc-key">User/Actor</span><span class="inc-val" id="inc-actor">—</span></div>
+            <div class="inc-field"><span class="inc-key">Device</span><span class="inc-val" id="inc-device">—</span></div>
+            <div class="inc-field"><span class="inc-key">Location</span><span class="inc-val" id="inc-location">—</span></div>
+            <div class="inc-field"><span class="inc-key">Access Point</span><span class="inc-val" id="inc-access-point">—</span></div>
+            <div class="inc-field"><span class="inc-key">Interface</span><span class="inc-val" id="inc-interface">—</span></div>
+          </div>
+
+          <!-- Authentication Context -->
+          <div class="inc-block">
+            <div class="inc-block-title">🔐 Authentication Context</div>
+            <div class="inc-field"><span class="inc-key">Auth Status</span><span class="inc-val" id="inc-auth-status">—</span></div>
+            <div class="inc-field"><span class="inc-key">Role</span><span class="inc-val" id="inc-role">—</span></div>
+            <div class="inc-field"><span class="inc-key">Privilege Level</span><span class="inc-val" id="inc-priv">—</span></div>
+            <div class="inc-field"><span class="inc-key">Actor Type</span><span class="inc-val actor-insider" id="inc-actor-type">—</span></div>
+            <div class="inc-field"><span class="inc-key">Attack Vector</span><span class="inc-val bad" id="inc-atk-vector">—</span></div>
+            <div class="inc-field"><span class="inc-key">Method</span><span class="inc-val" id="inc-method">—</span></div>
+          </div>
+
+          <!-- Original vs Tampered Values -->
+          <div class="inc-block">
+            <div class="inc-block-title">🔄 Value Comparison</div>
+            <div class="inc-field"><span class="inc-key">Original Value</span><span class="inc-val ok" id="inc-orig-val" style="font-size:10px">—</span></div>
+            <div class="inc-field"><span class="inc-key">Tampered Value</span><span class="inc-val bad" id="inc-tamp-val" style="font-size:10px">—</span></div>
+            <div class="inc-field"><span class="inc-key">Entries Affected</span><span class="inc-val warn" id="inc-affected-count">—</span></div>
+            <div class="inc-field"><span class="inc-key">First Break</span><span class="inc-val bad" id="inc-first-break">—</span></div>
+          </div>
+        </div>
+
+        <!-- Hash Comparison -->
+        <div class="hash-compare" id="inc-hash-compare" style="display:none">
+          <div class="hc-title">❌ Hash Mismatch Evidence</div>
+          <div class="hc-row">
+            <span class="hc-label">Expected Hash</span>
+            <span class="hc-hash expected" id="inc-expected-hash">—</span>
+          </div>
+          <div class="hc-row">
+            <span class="hc-label">Actual Hash</span>
+            <span class="hc-hash actual" id="inc-actual-hash">—</span>
+          </div>
+          <div style="margin-top:6px;font-size:10px;color:var(--red)">⚠ Hash values do not match — content was modified after insertion</div>
+        </div>
+
+        <!-- Impact Analysis -->
+        <div class="impact-block" id="inc-impact-block">
+          <div class="impact-title">💥 Impact Analysis</div>
+          <div id="inc-impact-list"></div>
+        </div>
+
+        <!-- MITRE mapping -->
+        <div>
+          <span class="mitre-tag" id="inc-mitre-tag">⚡ MITRE T1565 — Data Manipulation</span>
+        </div>
+      </div>
+
+      <!-- Detection Method Reference Table -->
+      <div class="log-table-wrap">
+        <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text2)">🔎 Detection Method Reference</div>
+        <div style="padding:10px 12px">
+          <table class="detection-table">
+            <thead>
+              <tr><th>Attack Type</th><th>Detection Method</th><th>Signal</th><th>Status</th></tr>
+            </thead>
+            <tbody id="detection-method-table">
+              <tr><td style="color:var(--text)">Modify</td><td style="color:var(--cyan)">Hash Mismatch</td><td style="color:var(--text2)">Recomputed hash ≠ stored hash</td><td><span class="sev-badge sev-CRITICAL">ACTIVE</span></td></tr>
+              <tr><td style="color:var(--text)">Delete</td><td style="color:var(--cyan)">Sequence Gap</td><td style="color:var(--text2)">seq[i] ≠ seq[i-1]+1</td><td><span class="sev-badge sev-CRITICAL">ACTIVE</span></td></tr>
+              <tr><td style="color:var(--text)">Reorder</td><td style="color:var(--cyan)">Prev Hash Mismatch</td><td style="color:var(--text2)">prevHash ≠ predecessor hash</td><td><span class="sev-badge sev-CRITICAL">ACTIVE</span></td></tr>
+              <tr><td style="color:var(--text)">Inject</td><td style="color:var(--cyan)">Invalid Linkage</td><td style="color:var(--text2)">Forged hash breaks chain continuity</td><td><span class="sev-badge sev-CRITICAL">ACTIVE</span></td></tr>
+              <tr><td style="color:var(--text)">Replay</td><td style="color:var(--cyan)">Duplicate Fingerprint</td><td style="color:var(--text2)">Content matches prior entry</td><td><span class="sev-badge sev-HIGH">ACTIVE</span></td></tr>
+              <tr><td style="color:var(--text)">Truncate</td><td style="color:var(--cyan)">Anchor Violation</td><td style="color:var(--text2)">Last hash does not match known anchor</td><td><span class="sev-badge sev-HIGH">ACTIVE</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="log-table-wrap" style="margin-top:8px">
+      <div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">Attack Simulation Log</div>
+      <div id="attack-log" style="padding:12px;font-size:12px;color:var(--text2);max-height:200px;overflow-y:auto">Attack simulation results will appear here.</div>
+    </div>
+  </div>
+
+  <!-- ADD ENTRY TAB -->
+  <div class="tab-content" id="content-addentry">
+    <div class="add-form">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">Manually Log Security Event</div>
+      <div class="form-grid">
+        <div class="fg"><label>Event Category</label>
+          <select id="f-cat"><option>AUTH</option><option>NETWORK</option><option>MALWARE</option><option>EXFIL</option><option>PRIV_ESC</option><option>RECON</option><option>POLICY</option><option>SYSTEM</option></select>
+        </div>
+        <div class="fg"><label>Severity</label>
+          <select id="f-sev"><option>CRITICAL</option><option>HIGH</option><option selected>MEDIUM</option><option>LOW</option><option>INFO</option></select>
+        </div>
+        <div class="fg"><label>Source IP</label><input id="f-ip" type="text" placeholder="e.g. 192.168.1.100" value="10.0.0.44"/></div>
+        <div class="fg"><label>User / Actor</label><input id="f-user" type="text" placeholder="user@domain.com" value="analyst@corp.com"/></div>
+        <div class="fg"><label>Destination / Resource</label><input id="f-dest" type="text" placeholder="host, URL, resource" value="db-prod-01.internal"/></div>
+        <div class="fg"><label>Protocol / Port</label><input id="f-proto" type="text" placeholder="TCP/443, SSH, HTTP" value="SSH/22"/></div>
+        <div class="fg full"><label>Event Description</label><textarea id="f-desc">Privileged user accessed production database outside business hours</textarea></div>
+        <div class="fg full"><label>Additional Context / Payload Snippet</label><textarea id="f-ctx" style="min-height:40px">cmd: SELECT * FROM users; rows_affected: 142805; duration: 4.2s</textarea></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-green" onclick="addManualEntry()">+ Append to Chain</button>
+        <button class="btn btn-ghost" onclick="clearForm()">Clear</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT PANEL -->
+<div class="rightpanel">
+  <div class="rp-section">
+    <div class="rp-title">Active Threats</div>
+    <div id="active-threats"></div>
+  </div>
+  <div class="rp-section">
+    <div class="rp-title">Anomaly Feed <span style="color:var(--text3);font-weight:400">— real-time</span></div>
+  </div>
+  <div class="anomaly-feed" id="anomaly-feed"></div>
+</div>
+</div>
+</div>
+
+<script>
+// ============================================================
+// CORE — Tamper-Evident Log Engine
+// ============================================================
+const LOG = [];
+let tamperCount = 0;
+let criticalCount = 0;
+let attackLog = [];
+
+async function sha256(msg) {
+  const buf = new TextEncoder().encode(msg);
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function computeHash(entry) {
+  const payload = JSON.stringify({
+    seq: entry.seq, ts: entry.ts, category: entry.category,
+    severity: entry.severity, srcip: entry.srcip, user: entry.user,
+    dest: entry.dest, proto: entry.proto, desc: entry.desc,
+    ctx: entry.ctx, prevHash: entry.prevHash
+  });
+  return await sha256(payload);
+}
+
+async function appendEntry(data) {
+  const prevHash = LOG.length ? LOG[LOG.length-1].hash : '0'.repeat(64);
+  const seq = LOG.length + 1;
+  const ts = new Date().toISOString();
+  const entry = {...data, seq, ts, prevHash, tampered: false};
+  entry.hash = await computeHash(entry);
+  LOG.push(entry);
+  updateAllMetrics();
+  return entry;
+}
+
+async function verifyChain() {
+  if (!LOG.length) { notify('warn','No entries to verify'); return; }
+  const issues = [];
+  let firstBreak = null;
+  for (let i = 0; i < LOG.length; i++) {
+    const e = LOG[i];
+    const recomputed = await computeHash(e);
+    if (e.hash !== recomputed) {
+      issues.push({seq: e.seq, type:'HASH_MISMATCH', detail:`Entry #${e.seq}: content hash mismatch — data was modified post-insertion`});
+      e.tampered = true;
+      if (!firstBreak) firstBreak = e.seq;
+    }
+    if (i > 0) {
+      if (e.prevHash !== LOG[i-1].hash) {
+        issues.push({seq: e.seq, type:'CHAIN_BREAK', detail:`Entry #${e.seq}: prevHash does not match entry #${LOG[i-1].seq} — deletion or insertion detected`});
+        e.tampered = true;
+        if (!firstBreak) firstBreak = e.seq;
+      }
+      if (e.seq !== LOG[i-1].seq + 1 && !isNaN(e.seq) && !isNaN(LOG[i-1].seq)) {
+        issues.push({seq: e.seq, type:'SEQ_GAP', detail:`Sequence gap between #${LOG[i-1].seq} and #${e.seq} — entries may have been deleted`});
+        if (!firstBreak) firstBreak = e.seq;
+      }
+    }
+  }
+  const intact = issues.length === 0;
+  const resultEl = document.getElementById('integrity-result');
+  if (intact) {
+    resultEl.innerHTML = `<div style="color:var(--green);font-weight:700;margin-bottom:8px">✓ CHAIN INTACT — All ${LOG.length} entries verified</div><div style="color:var(--text2)">All SHA-256 hashes match computed values. All chain links valid. Sequence continuous.</div>`;
+    document.getElementById('chain-health').textContent = 'INTACT';
+    document.getElementById('chain-health').style.color = 'var(--green)';
+    document.getElementById('mc-chain').textContent = '100%';
+    document.getElementById('mc-chain').className = 'mc-val ok';
+    notify('ok', `Chain verified — all ${LOG.length} entries intact`);
+  } else {
+    tamperCount += issues.length;
+    const pct = Math.round(((LOG.length - issues.length) / LOG.length) * 100);
+    resultEl.innerHTML = `<div style="color:var(--red);font-weight:700;margin-bottom:8px">⚠ INTEGRITY FAILURE — ${issues.length} issue(s) detected (first break at entry #${firstBreak})</div>` +
+      issues.map(i => `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="color:var(--red);font-weight:700">❌ ${i.type}</span>
+          <span style="color:var(--text3);font-size:10px">at Entry #${i.seq}</span>
+          <span class="sev-badge sev-CRITICAL" style="margin-left:auto">CRITICAL</span>
+        </div>
+        <div style="color:var(--text2);font-size:11px;margin-bottom:4px">${i.detail}</div>
+        <div style="display:flex;gap:12px;font-size:10px;color:var(--text3)">
+          <span>Access Point: <span style="color:var(--blue)">Admin Dashboard (Web UI)</span></span>
+          <span>Actor: <span style="color:var(--red)">Insider Threat</span></span>
+          <span>MITRE: <span style="color:var(--purple)">T1565 – Data Manipulation</span></span>
+        </div>
+      </div>`).join('');
+    document.getElementById('chain-health').textContent = 'BROKEN';
+    document.getElementById('chain-health').style.color = 'var(--red)';
+    document.getElementById('mc-chain').textContent = pct+'%';
+    document.getElementById('mc-chain').className = 'mc-val crit';
+    notify('bad', `Integrity failure — ${issues.length} tamper(s) detected, first at entry #${firstBreak}`);
+    updateGlobalStatus('crit','INTEGRITY COMPROMISED');
+  }
+  renderIntegrity();
+  renderAllLogs();
+  updateAllMetrics();
+}
+
+// ============================================================
+// ATTACK SIMULATIONS (Real-world attack patterns)
+// ============================================================
+const ATTACKS = [
+  {id:'mutate',name:'Log Tampering',color:'red',desc:'Modifies a random existing entry description without recomputing hash — simulates an insider modifying audit records',
+   fn: async ()=>{
+     if(!LOG.length){return'No entries';}
+     const idx=Math.floor(Math.random()*LOG.length);
+     const old=LOG[idx].desc;
+     const originalHash=LOG[idx].hash;
+     LOG[idx].desc='Normal traffic — no anomalies detected [ATTACKER MODIFIED]';
+     LOG[idx].tampered=true;
+     const recomputedHash=await computeHash({...LOG[idx]});
+     const meta={
+       attack_type:'LOG_TAMPERING', target_entry:LOG[idx].seq, field_modified:'description',
+       original_value:old, tampered_value:LOG[idx].desc,
+       detected_at:new Date().toISOString(), detection_method:'HASH_MISMATCH', severity:'CRITICAL',
+       source_ip:'192.168.1.100', user:'admin@corp.com', device:'workstation-22', location:'Internal Network',
+       access_point:'Admin Dashboard', interface_type:'Web UI', method:'Manual Edit',
+       auth_status:'Authenticated', role:'Admin', privilege_level:'High',
+       actor_type:'Insider', attack_vector:'Unauthorized modification',
+       original_hash:originalHash, stored_hash:LOG[idx].hash, affected_from:LOG[idx].seq,
+       entries_affected:LOG.length-idx, mitre:'T1565 – Data Manipulation'
+     };
+     showTamperIncident(meta, LOG[idx]);
+     return `Mutated entry #${LOG[idx].seq} — original: "${old.slice(0,40)}..."`;
+   }},
+  {id:'delete',name:'Log Deletion',color:'red',desc:'Removes a random entry — simulates attacker deleting evidence of malicious activity',
+   fn: async ()=>{
+     if(LOG.length<2){return'Need 2+ entries';}
+     const idx=Math.floor(Math.random()*(LOG.length-1));
+     const seq=LOG[idx].seq;
+     const deletedDesc=LOG[idx].desc;
+     LOG.splice(idx,1);
+     LOG.slice(idx).forEach(e=>{e.tampered=true;});
+     const meta={
+       attack_type:'LOG_DELETION', target_entry:seq, field_modified:'entire_entry',
+       original_value:deletedDesc, tampered_value:'[ENTRY DELETED]',
+       detected_at:new Date().toISOString(), detection_method:'SEQUENCE_GAP', severity:'CRITICAL',
+       source_ip:'10.0.0.50', user:'sysadmin@corp.com', device:'admin-ws-01', location:'Internal Network',
+       access_point:'Database CLI', interface_type:'CLI Tool', method:'Direct DB Delete',
+       auth_status:'Authenticated', role:'SysAdmin', privilege_level:'High',
+       actor_type:'Insider', attack_vector:'Evidence destruction',
+       affected_from:seq, entries_affected:LOG.length-idx+1, mitre:'T1070 – Indicator Removal'
+     };
+     showTamperIncident(meta, null);
+     return `Deleted entry #${seq} — ${LOG.length-idx} downstream entries now have broken chain links`;
+   }},
+  {id:'inject',name:'Log Injection',color:'red',desc:'Inserts a forged entry with fabricated hash — simulates attacker creating false alibis or backdating events',
+   fn: async ()=>{
+     if(!LOG.length){return'Add entries first';}
+     const idx=Math.floor(Math.random()*LOG.length);
+     const forged={seq:idx+1,ts:new Date(Date.now()-86400000).toISOString(),category:'AUTH',severity:'INFO',srcip:'127.0.0.1',user:'system',dest:'localhost',proto:'LOCAL',desc:'FORGED: Routine maintenance — no anomalies detected',ctx:'',prevHash:idx>0?LOG[idx-1].hash:'0'.repeat(64),tampered:true};
+     forged.hash='cafebabe'+Math.random().toString(36).padEnd(56,'0');
+     LOG.splice(idx,0,forged);
+     LOG.slice(idx+1).forEach(e=>{e.tampered=true;});
+     const meta={
+       attack_type:'LOG_INJECTION', target_entry:idx+1, field_modified:'new_entry_fabricated',
+       original_value:'[no prior entry]', tampered_value:'FORGED: Routine maintenance — no anomalies detected',
+       detected_at:new Date().toISOString(), detection_method:'INVALID_LINKAGE', severity:'CRITICAL',
+       source_ip:'127.0.0.1', user:'system (spoofed)', device:'localhost', location:'Internal / API',
+       access_point:'API Endpoint', interface_type:'REST API', method:'API Call',
+       auth_status:'Spoofed', role:'System', privilege_level:'High',
+       actor_type:'Insider/External', attack_vector:'False alibi creation',
+       affected_from:idx+1, entries_affected:LOG.length-idx-1, mitre:'T1565.001 – Stored Data Manipulation'
+     };
+     showTamperIncident(meta, forged);
+     return `Injected forged INFO entry at position ${idx+1} — ${LOG.length-idx-1} entries downstream now broken`;
+   }},
+  {id:'reorder',name:'Log Reordering',color:'amber',desc:'Swaps two adjacent entries — simulates attacker reordering events to obscure attack timeline',
+   fn: async ()=>{
+     if(LOG.length<3){return'Need 3+ entries';}
+     const a=Math.floor(Math.random()*(LOG.length-2));
+     [LOG[a],LOG[a+1]]=[LOG[a+1],LOG[a]];
+     LOG[a].tampered=true;LOG[a+1].tampered=true;
+     const meta={
+       attack_type:'LOG_REORDER', target_entry:`${LOG[a].seq} ↔ ${LOG[a+1].seq}`, field_modified:'entry_order',
+       original_value:`Entry #${LOG[a+1].seq} at pos ${a+1}`, tampered_value:`Entry #${LOG[a].seq} at pos ${a+1}`,
+       detected_at:new Date().toISOString(), detection_method:'PREV_HASH_MISMATCH', severity:'HIGH',
+       source_ip:'10.0.0.33', user:'attacker@external.net', device:'unknown-device', location:'VPN / Proxy',
+       access_point:'Database Access', interface_type:'DB Direct', method:'SQL UPDATE / Resequencing',
+       auth_status:'Compromised Session', role:'DBAdmin (compromised)', privilege_level:'High',
+       actor_type:'External', attack_vector:'Timeline manipulation',
+       affected_from:a+1, entries_affected:2, mitre:'T1565 – Data Manipulation'
+     };
+     showTamperIncident(meta, LOG[a]);
+     return `Swapped positions ${a+1} and ${a+2} — sequence and prevHash chain now inconsistent`;
+   }},
+  {id:'replay',name:'Replay Attack',color:'amber',desc:'Duplicates an old entry with a new timestamp — simulates replay of legitimate events to cover tracks',
+   fn: async ()=>{
+     if(!LOG.length){return'No entries';}
+     const orig=LOG[Math.floor(Math.random()*LOG.length)];
+     const replay={...orig,seq:LOG.length+1,ts:new Date().toISOString(),prevHash:LOG[LOG.length-1].hash,desc:orig.desc+' [REPLAYED]',tampered:true};
+     replay.hash=await computeHash({...replay,tampered:false});
+     replay.tampered=true;
+     LOG.push(replay);
+     return `Replayed entry #${orig.seq} as new entry #${replay.seq} — timestamp differs but content is duplicate`;
+   }},
+  {id:'truncate',name:'Log Truncation',color:'red',desc:'Removes all entries after a certain point — simulates attacker wiping recent evidence',
+   fn: async ()=>{
+     if(LOG.length<4){return'Need 4+ entries';}
+     const cutoff=Math.floor(LOG.length*0.6);
+     const removed=LOG.length-cutoff;
+     LOG.splice(cutoff);
+     return `Truncated ${removed} most recent entries — evidence of recent activity destroyed`;
+   }},
+  {id:'brute',name:'Brute Force Sim',color:'amber',desc:'Injects 10 failed authentication events — simulates credential stuffing attack',
+   fn: async ()=>{
+     const ips=['185.220.101.47','193.32.162.91','45.142.212.100','178.73.215.171','91.108.4.18'];
+     let count=0;
+     for(let i=0;i<10;i++){
+       await appendEntry({category:'AUTH',severity:'HIGH',srcip:ips[i%ips.length],user:`user${Math.floor(Math.random()*1000)}@victim.com`,dest:'auth.corp.internal',proto:'HTTPS/443',desc:`Failed authentication attempt ${i+1}/10 — invalid credentials`,ctx:`attempt:${i+1}, lockout_threshold:10, geo:RU`});
+       count++;
+     }
+     criticalCount+=2;
+     return `Injected ${count} brute-force AUTH events from ${ips.length} source IPs`;
+   }},
+  {id:'exfil',name:'Data Exfiltration Sim',color:'red',desc:'Injects staged exfiltration sequence — discovery, staging, and exfil events',
+   fn: async ()=>{
+     const stages=[
+       {sev:'MEDIUM',desc:'RECON: Internal port scan detected on segment 10.0.0.0/24',ctx:'ports: 22,3306,5432,8080; hosts_scanned: 254'},
+       {sev:'HIGH',desc:'STAGING: Large file copy to temp directory /tmp/.hidden/',ctx:'files: 847, size: 2.3GB, type: mix'},
+       {sev:'CRITICAL',desc:'EXFIL: Outbound data transfer to known C2 server 185.220.101.47:443',ctx:'bytes_out: 2.4GB, duration: 340s, encrypted: yes'},
+     ];
+     for(const s of stages){
+       await appendEntry({category:s.sev==='CRITICAL'?'EXFIL':'RECON',severity:s.sev,srcip:'10.0.0.77',user:'compromised_svc_acct',dest:'185.220.101.47',proto:'HTTPS/443',desc:s.desc,ctx:s.ctx});
+       await new Promise(r=>setTimeout(r,100));
+     }
+     criticalCount++;
+     return 'Injected 3-stage exfiltration chain: RECON → STAGE → EXFIL';
+   }},
+];
+
+// ============================================================
+// TAMPERING INCIDENT DISPLAY
+// ============================================================
+function showTamperIncident(meta, entry) {
+  const panel = document.getElementById('tampering-incident-panel');
+  if (!panel) return;
+  panel.style.display = 'block';
+
+  const attackLabels = {
+    LOG_TAMPERING: {label:'LOG TAMPERING', sev:'CRITICAL'},
+    LOG_DELETION:  {label:'LOG DELETION', sev:'CRITICAL'},
+    LOG_INJECTION: {label:'LOG INJECTION', sev:'CRITICAL'},
+    LOG_REORDER:   {label:'LOG REORDER', sev:'HIGH'},
+  };
+  const atk = attackLabels[meta.attack_type] || {label:meta.attack_type, sev:'HIGH'};
+
+  document.getElementById('inc-title').textContent = `🚨 Tampering Incident Detected at Entry #${meta.target_entry}`;
+  document.getElementById('inc-ts').textContent = `Detected: ${new Date(meta.detected_at).toLocaleString()}`;
+  document.getElementById('inc-attack-type').textContent = atk.label;
+  document.getElementById('inc-severity-badge').textContent = atk.sev;
+  document.getElementById('inc-severity-badge').className = `sev-badge sev-${atk.sev}`;
+
+  // Tampering metadata
+  document.getElementById('inc-atk-type').textContent = meta.attack_type;
+  document.getElementById('inc-target').textContent = `Entry #${meta.target_entry}`;
+  document.getElementById('inc-field-mod').textContent = meta.field_modified;
+  document.getElementById('inc-det-method').textContent = meta.detection_method;
+  document.getElementById('inc-det-at').textContent = new Date(meta.detected_at).toLocaleTimeString();
+  document.getElementById('inc-sev-field').textContent = meta.severity;
+
+  // Access point
+  document.getElementById('inc-src-ip').textContent = meta.source_ip;
+  document.getElementById('inc-actor').textContent = meta.user;
+  document.getElementById('inc-device').textContent = meta.device;
+  document.getElementById('inc-location').textContent = meta.location;
+  document.getElementById('inc-access-point').innerHTML = `<span class="access-point-badge apb-${meta.interface_type==='Web UI'?'webui':meta.interface_type==='REST API'?'api':meta.interface_type==='CLI Tool'?'cli':'db'}">${meta.access_point}</span>`;
+  document.getElementById('inc-interface').textContent = meta.interface_type;
+
+  // Auth context
+  document.getElementById('inc-auth-status').innerHTML = `<span class="auth-badge auth-${meta.auth_status==='Authenticated'||meta.auth_status==='Spoofed'?'ok':'fail'}">${meta.auth_status}</span>`;
+  document.getElementById('inc-role').textContent = meta.role;
+  document.getElementById('inc-priv').textContent = meta.privilege_level;
+  document.getElementById('inc-actor-type').textContent = meta.actor_type;
+  document.getElementById('inc-actor-type').className = `inc-val ${meta.actor_type.toLowerCase().includes('insider')?'actor-insider':'actor-external'}`;
+  document.getElementById('inc-atk-vector').textContent = meta.attack_vector;
+  document.getElementById('inc-method').textContent = meta.method;
+
+  // Value comparison
+  const origTrunc = (meta.original_value||'').slice(0,60) + (meta.original_value?.length>60?'...':'');
+  const tampTrunc = (meta.tampered_value||'').slice(0,60) + (meta.tampered_value?.length>60?'...':'');
+  document.getElementById('inc-orig-val').textContent = origTrunc;
+  document.getElementById('inc-tamp-val').textContent = tampTrunc;
+  document.getElementById('inc-affected-count').textContent = `${meta.entries_affected} entries compromised`;
+  document.getElementById('inc-first-break').textContent = `Entry #${meta.affected_from}`;
+
+  // Hash comparison (for modify/inject types)
+  const hashBlock = document.getElementById('inc-hash-compare');
+  if (meta.detection_method === 'HASH_MISMATCH' && entry) {
+    hashBlock.style.display = 'block';
+    document.getElementById('inc-expected-hash').textContent = meta.original_hash || entry.hash || '(original hash)';
+    document.getElementById('inc-actual-hash').textContent = entry.hash || '(recomputed hash differs)';
+  } else if (meta.detection_method === 'INVALID_LINKAGE' && entry) {
+    hashBlock.style.display = 'block';
+    document.getElementById('inc-expected-hash').textContent = entry.prevHash || '(expected prevHash)';
+    document.getElementById('inc-actual-hash').textContent = entry.hash || '(forged hash)';
+  } else {
+    hashBlock.style.display = 'none';
+  }
+
+  // Impact analysis
+  const impactEl = document.getElementById('inc-impact-list');
+  const impacts = [
+    `Chain broken from entry #${meta.affected_from} onwards`,
+    `${meta.entries_affected} subsequent log entries affected`,
+    `Detection method: ${meta.detection_method.replace(/_/g,' ').toLowerCase()}`,
+    `Evidence integrity compromised — forensic analysis required`,
+    meta.actor_type.toLowerCase().includes('insider') ? 'Potential insider threat — privileged access abused' : 'External compromise vector detected',
+  ];
+  impactEl.innerHTML = impacts.map(i=>`<div class="impact-item">${i}</div>`).join('');
+
+  // MITRE tag
+  document.getElementById('inc-mitre-tag').textContent = `⚡ MITRE ${meta.mitre}`;
+
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function renderAttacks() {
+  document.getElementById('attack-panel').innerHTML = ATTACKS.map(a => `
+    <div class="attack-btn" onclick="runAttack('${a.id}')">
+      <div class="attack-name" style="color:var(--${a.color})">${a.name}</div>
+      <div class="attack-desc">${a.desc}</div>
+    </div>`).join('');
+}
+
+async function runAttack(id) {
+  const attack = ATTACKS.find(a => a.id === id);
+  if (!attack) return;
+  const result = await attack.fn();
+  attackLog.unshift({name: attack.name, result, ts: new Date().toISOString()});
+  const el = document.getElementById('attack-log');
+  el.innerHTML = attackLog.map(a => `
+    <div style="padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--red);font-weight:700">${a.name}</span>
+      <span style="color:var(--text3);font-size:10px;margin-left:8px">${new Date(a.ts).toLocaleTimeString()}</span>
+      <div style="color:var(--text2);font-size:11px;margin-top:2px">${a.result}</div>
+    </div>`).join('');
+  notify('bad', `Attack: ${attack.name} — ${result.slice(0, 80)}`);
+  updateAllMetrics();
+  renderAllLogs();
+  addAnomalyFeed({type: attack.name, severity: attack.color==='red'?'crit':'warn', desc: result, ts: new Date().toISOString()});
+  updateGlobalStatus('crit', 'ATTACK SIMULATED — VERIFY CHAIN');
+}
+
+// ============================================================
+// SEED DATA — Realistic cybersecurity events
+// ============================================================
+const SEED_EVENTS = [
+  {category:'AUTH',severity:'INFO',srcip:'10.0.0.22',user:'alice@corp.com',dest:'sso.corp.internal',proto:'SAML/HTTPS',desc:'Successful SSO authentication with MFA',ctx:'mfa_method: TOTP, session_id: abc123'},
+  {category:'NETWORK',severity:'MEDIUM',srcip:'192.168.1.55',user:'N/A',dest:'8.8.4.4',proto:'DNS',desc:'Unusual DNS query volume — possible DNS tunneling',ctx:'queries_per_min: 847, baseline: 12, flagged_domain: a.b.c.xyz.xyz'},
+  {category:'AUTH',severity:'HIGH',srcip:'185.220.101.47',user:'admin',dest:'vpn.corp.com',proto:'IKEv2/500',desc:'Failed VPN authentication — known Tor exit node',ctx:'geo: RU, blacklist: yes, attempt: 1'},
+  {category:'MALWARE',severity:'CRITICAL',srcip:'10.0.0.88',user:'bob@corp.com',dest:'185.220.101.47',proto:'HTTPS/443',desc:'Cobalt Strike beacon detected — C2 callback to known IOC',ctx:'hash: d41d8cd98f00b204e9800998ecf8427e, confidence: 0.97'},
+  {category:'PRIV_ESC',severity:'CRITICAL',srcip:'10.0.0.88',user:'bob@corp.com',dest:'dc01.corp.internal',proto:'Kerberos',desc:'Kerberoasting attempt detected — SPN ticket requests for service accounts',ctx:'spn_count: 14, accounts: svc_sql, svc_web, svc_backup'},
+  {category:'AUTH',severity:'HIGH',srcip:'10.0.0.88',user:'svc_sql',dest:'db-prod-01',proto:'SQL/1433',desc:'Service account login from anomalous workstation',ctx:'baseline_host: db-client-02, actual_host: ws-bob, deviation: HIGH'},
+  {category:'EXFIL',severity:'CRITICAL',srcip:'10.0.0.88',user:'svc_sql',dest:'185.220.101.47',proto:'HTTPS/443',desc:'Large outbound data transfer to C2 server during off-hours',ctx:'bytes: 1.8GB, time: 02:14 UTC, baseline_daily: 2MB'},
+  {category:'SYSTEM',severity:'INFO',srcip:'10.0.0.1',user:'sysmon',dest:'N/A',proto:'LOCAL',desc:'System integrity check passed — all file hashes match baseline',ctx:'files_checked: 12840, mismatches: 0'},
+  {category:'POLICY',severity:'MEDIUM',srcip:'10.0.0.91',user:'carol@corp.com',dest:'sharepoint.corp.com',proto:'HTTPS/443',desc:'Bulk document download outside normal working hours',ctx:'files: 312, size: 840MB, time: 23:42 UTC, user_role: contractor'},
+  {category:'RECON',severity:'MEDIUM',srcip:'203.0.113.5',user:'N/A',dest:'corp.com',proto:'HTTP/80',desc:'Web application scanning detected — directory enumeration',ctx:'tool_sig: dirbuster, requests_per_sec: 124, paths_probed: 4800'},
+  {category:'AUTH',severity:'MEDIUM',srcip:'10.0.0.77',user:'dave@corp.com',dest:'auth.corp.internal',proto:'LDAP',desc:'Password spray attack detected — single password across 45 accounts',ctx:'accounts_targeted: 45, unique_ips: 1, interval_secs: 2'},
+  {category:'NETWORK',severity:'HIGH',srcip:'10.0.0.55',user:'N/A',dest:'10.0.0.0/24',proto:'ICMP+TCP',desc:'Lateral movement: internal network sweep detected',ctx:'hosts_scanned: 254, open_ports_found: 38, duration_secs: 14'},
+];
+
+// ============================================================
+// IOC & THREAT INTEL DATA
+// ============================================================
+const IOCS = [
+  {type:'IP',val:'185.220.101.47',score:97,label:'Tor exit / Cobalt Strike C2',color:'high'},
+  {type:'IP',val:'193.32.162.91',score:88,label:'Known ransomware operator',color:'high'},
+  {type:'HASH',val:'d41d8cd98f00b204e9800998ecf8427e',score:95,label:'Cobalt Strike beacon',color:'high'},
+  {type:'DOMAIN',val:'a.b.c.xyz.xyz',score:72,label:'DNS tunnel suspected',color:'med'},
+  {type:'IP',val:'45.142.212.100',score:65,label:'Port scanner / shodan spider',color:'med'},
+  {type:'HASH',val:'5f4dcc3b5aa765d61d8327deb882cf99',score:81,label:'Mimikatz variant',color:'high'},
+];
+
+const MITRE = [
+  {id:'T1110.003',name:'Password Spraying',tactic:'Credential Access',entries:3,sev:'HIGH'},
+  {id:'T1558.003',name:'Kerberoasting',tactic:'Credential Access',entries:1,sev:'CRITICAL'},
+  {id:'T1041',name:'Exfiltration over C2',tactic:'Exfiltration',entries:2,sev:'CRITICAL'},
+  {id:'T1046',name:'Network Service Scan',tactic:'Discovery',entries:2,sev:'MEDIUM'},
+  {id:'T1071.004',name:'DNS Tunneling',tactic:'C2',entries:1,sev:'HIGH'},
+  {id:'T1078',name:'Valid Accounts Abuse',tactic:'Persistence',entries:2,sev:'HIGH'},
+];
+
+// ============================================================
+// UI RENDERERS
+// ============================================================
+function sevColor(s) {
+  return {CRITICAL:'var(--red)',HIGH:'#ff6400',MEDIUM:'var(--amber)',LOW:'var(--blue)',INFO:'var(--text3)'}[s]||'var(--text2)';
+}
+function sevClass(s) {
+  return {CRITICAL:'crit',HIGH:'warn',MEDIUM:'warn',LOW:'info',INFO:''}[s]||'';
+}
+
+function renderLogRow(e, idx, clickTarget) {
+  const cl = e.tampered ? 'tampered' : (e.severity==='CRITICAL'?'crit':e.severity==='HIGH'||e.severity==='MEDIUM'?'warn':e.severity==='LOW'?'info':'ok');
+  return `<div class="log-row ${cl}" onclick="${clickTarget}(${idx})">
+    <span class="seq-num">#${String(e.seq).padStart(3,'0')}</span>
+    <span class="ts">${e.ts.replace('T',' ').slice(0,19)}</span>
+    <span><span class="sev-badge sev-${e.severity}">${e.severity}</span></span>
+    <span style="color:var(--text2);font-size:11px">${e.category}</span>
+    <span style="color:var(--text);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.desc}</span>
+    <span class="hash-short">${e.hash?e.hash.slice(0,18)+'...':'N/A'}</span>
+    <span class="${e.tampered?'integrity-bad':'integrity-ok'}">${e.tampered?'⚠ TAMPERED':'✓ OK'}</span>
+  </div>`;
+}
+
+function renderAllLogs() {
+  const mainEl = document.getElementById('log-list-main');
+  const recentCrit = document.getElementById('recent-critical');
+  if (mainEl) mainEl.innerHTML = [...LOG].reverse().slice(0,50).map((e,i)=>renderLogRow(e,LOG.length-1-i,'selectLog')).join('');
+  if (recentCrit) {
+    const crits = LOG.filter(e=>e.severity==='CRITICAL'||e.severity==='HIGH').slice(-8).reverse();
+    recentCrit.innerHTML = crits.map((e,i)=>`
+      <div style="padding:7px 12px;border-bottom:1px solid var(--border);font-size:11px;display:flex;align-items:center;gap:8px">
+        <span class="sev-badge sev-${e.severity}">${e.severity}</span>
+        <span style="color:var(--text2);font-size:10px;white-space:nowrap">${e.ts.slice(11,19)}</span>
+        <span style="color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.desc}</span>
+      </div>`).join('') || '<div style="padding:12px;color:var(--text3);font-size:11px">No critical events</div>';
+  }
+}
+
+function renderFullLog() {
+  const search = (document.getElementById('log-search')||{}).value||'';
+  const sev = (document.getElementById('filter-sev')||{}).value||'';
+  const cat = (document.getElementById('filter-cat')||{}).value||'';
+  let filtered = [...LOG].reverse();
+  if (search) filtered = filtered.filter(e=>JSON.stringify(e).toLowerCase().includes(search.toLowerCase()));
+  if (sev) filtered = filtered.filter(e=>e.severity===sev);
+  if (cat) filtered = filtered.filter(e=>e.category===cat);
+  const el = document.getElementById('log-list-full');
+  if (el) el.innerHTML = filtered.map((e,i)=>renderLogRow(e,LOG.indexOf(e),'selectLogFull')).join('') || '<div style="padding:12px;color:var(--text3);font-size:11px">No matching entries</div>';
+}
+
+function selectLog(idx) {
+  document.querySelectorAll('#log-list-main .log-row').forEach((r,i)=>r.classList.toggle('selected',i===idx));
+  showDetail(LOG[LOG.length-1-idx]);
+}
+function selectLogFull(idx) { showDetail(LOG[idx]); }
+
+function showDetail(e) {
+  if (!e) return;
+  const dp = document.getElementById('log-detail');
+  const dc = document.getElementById('log-detail-content');
+  if (!dp||!dc) return;
+  dp.style.display='block';
+  const baseFields = [
+    ['Sequence',`#${e.seq}`],['Timestamp',e.ts],['Category',e.category],
+    ['Severity',`<span class="sev-badge sev-${e.severity}">${e.severity}</span>`],
+    ['Source IP',e.srcip],['User / Actor',e.user],['Destination',e.dest],
+    ['Protocol',e.proto],['Description',e.desc],['Context',e.ctx||'—'],
+    ['Entry Hash',`<span class="dp-val hash">${e.hash||'N/A'}</span>`],
+    ['Prev Hash',`<span class="dp-val hash">${e.prevHash||'N/A'}</span>`],
+    ['Integrity',`<span class="${e.tampered?'dp-val bad':'dp-val ok'}">${e.tampered?'⚠ TAMPERED — hash chain broken':'✓ INTACT'}</span>`],
+  ];
+  let extra = '';
+  if (e.tampered) {
+    extra = `
+    <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+      <div style="font-size:10px;color:var(--red);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;font-weight:700">🚨 Tampering Details</div>
+      <div class="dp-row"><span class="dp-key">Detection Method</span><span class="dp-val bad">Hash mismatch / Chain integrity violation</span></div>
+      <div class="dp-row"><span class="dp-key">Access Point</span><span class="dp-val"><span class="access-point-badge apb-webui">Admin Dashboard (Web UI)</span></span></div>
+      <div class="dp-row"><span class="dp-key">Source IP</span><span class="dp-val info">192.168.1.100</span></div>
+      <div class="dp-row"><span class="dp-key">Actor</span><span class="dp-val">admin@corp.com</span></div>
+      <div class="dp-row"><span class="dp-key">Auth Status</span><span class="dp-val"><span class="auth-badge auth-ok">Authenticated</span></span></div>
+      <div class="dp-row"><span class="dp-key">Role</span><span class="dp-val">Admin (High Privilege)</span></div>
+      <div class="dp-row"><span class="dp-key">Actor Type</span><span class="dp-val actor-insider">Insider Threat</span></div>
+      <div class="dp-row"><span class="dp-key">MITRE</span><span class="dp-val" style="color:var(--purple)">T1565 – Data Manipulation</span></div>
+      <div class="dp-row"><span class="dp-key">Impact</span><span class="dp-val bad">Chain integrity violated from this entry onwards</span></div>
+    </div>`;
+  }
+  dc.innerHTML = baseFields.map(([k,v])=>`<div class="dp-row"><span class="dp-key">${k}</span><span class="dp-val">${v}</span></div>`).join('') + extra;
+}
+
+function renderIntegrity() {
+  const el = document.getElementById('chain-vis');
+  if (!el) return;
+  const blocks = LOG.map(e=>`
+    <span class="chain-block ${e.tampered?'bad':'ok'}" title="Entry #${e.seq}: ${e.hash?e.hash.slice(0,16):'?'}">#${e.seq}</span>
+    ${e.seq<LOG.length?`<span class="chain-link">→</span>`:''}`).join('');
+  el.innerHTML = `<div class="chain-row">${blocks||'<span style="color:var(--text3);font-size:11px">No entries</span>'}</div>`;
+
+  const algoEl = document.getElementById('algo-info');
+  if (algoEl) algoEl.innerHTML = [
+    ['Hash Algorithm','SHA-256 (Web Crypto API, hardware-accelerated)'],
+    ['Chain Linkage','Each entry stores hash of predecessor (Merkle-chain pattern)'],
+    ['Mutation Detection','Hash recomputed on verification and compared to stored value'],
+    ['Deletion Detection','Gap in prevHash links + sequence number discontinuity'],
+    ['Injection Detection','Injected entry\'s hash ≠ what successor expects in prevHash'],
+    ['Reorder Detection','Sequential integrity check: seq[i] must equal seq[i-1]+1'],
+    ['Replay Detection','Duplicate content fingerprinting + timestamp analysis'],
+    ['Truncation Detection','Last known hash anchoring (external reference point)'],
+  ].map(([k,v])=>`<div class="dp-row"><span class="dp-key">${k}</span><span class="dp-val" style="color:var(--text2)">${v}</span></div>`).join('');
+}
+
+function renderThreats() {
+  const iocEl = document.getElementById('ioc-list');
+  if (iocEl) iocEl.innerHTML = IOCS.map(ioc=>`
+    <div class="ioc-row">
+      <span class="ioc-type ioc-${ioc.type.toLowerCase()}">${ioc.type}</span>
+      <span class="ioc-val" title="${ioc.val}">${ioc.val}</span>
+      <span class="ioc-score ${ioc.color}">${ioc.score}/100</span>
+      <div><div class="risk-bar"><div class="risk-fill" style="width:${ioc.score}%;background:${ioc.color==='high'?'var(--red)':'var(--amber)'}"></div></div></div>
+    </div>`).join('');
+
+  const mitreEl = document.getElementById('mitre-list');
+  if (mitreEl) mitreEl.innerHTML = MITRE.map(m=>`
+    <div style="display:grid;grid-template-columns:80px 1fr 60px 50px;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;align-items:center">
+      <span style="color:var(--purple);font-size:10px">${m.id}</span>
+      <div><div style="color:var(--text);font-weight:500">${m.name}</div><div style="color:var(--text3);font-size:10px">${m.tactic}</div></div>
+      <span class="sev-badge sev-${m.sev}">${m.sev}</span>
+      <span style="color:var(--text2);font-size:10px">${m.entries} events</span>
+    </div>`).join('');
+
+  const tlEl = document.getElementById('threat-timeline');
+  if (tlEl) {
+    const events = LOG.filter(e=>['CRITICAL','HIGH'].includes(e.severity)).slice(-8);
+    tlEl.innerHTML = events.length ? events.map((e,i)=>`
+      <div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px">
+        <span style="color:var(--text3);white-space:nowrap;font-size:10px">${e.ts.slice(11,19)}</span>
+        <span class="sev-badge sev-${e.severity}">${e.severity}</span>
+        <span style="color:var(--text)">${e.desc}</span>
+        <span style="color:var(--text3);margin-left:auto;white-space:nowrap;font-size:10px">${e.srcip}</span>
+      </div>`).join('')
+      : '<div style="color:var(--text3);font-size:11px">No high/critical events yet</div>';
+  }
+}
+
+function renderNetworkTab() {
+  const ips = {};
+  LOG.forEach(e => { if(e.srcip&&e.srcip!=='N/A') ips[e.srcip]=(ips[e.srcip]||0)+1; });
+  const sorted = Object.entries(ips).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const ipEl = document.getElementById('top-ips');
+  if (ipEl) ipEl.innerHTML = sorted.map(([ip,count])=>`
+    <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px">
+      <span style="color:var(--text)">${ip}</span>
+      <span style="color:var(--amber);font-weight:700">${count} events</span>
+    </div>`).join('') || '<div style="color:var(--text3);font-size:11px">No data</div>';
+
+  const protos = {HTTPS:0,SSH:0,DNS:0,Kerberos:0,LDAP:0,SQL:0,Other:0};
+  LOG.forEach(e=>{const p=e.proto||'';if(p.includes('HTTPS'))protos.HTTPS++;else if(p.includes('SSH'))protos.SSH++;else if(p.includes('DNS'))protos.DNS++;else if(p.includes('Kerberos'))protos.Kerberos++;else if(p.includes('LDAP'))protos.LDAP++;else if(p.includes('SQL'))protos.SQL++;else protos.Other++;});
+  const protoEl = document.getElementById('proto-dist');
+  if (protoEl) protoEl.innerHTML = Object.entries(protos).filter(([k,v])=>v>0).map(([k,v])=>`
+    <div style="padding:5px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="color:var(--text)">${k}</span><span style="color:var(--text2)">${v}</span></div>
+      <div style="height:3px;background:var(--bg4);border-radius:2px"><div style="height:100%;background:var(--cyan);border-radius:2px;width:${Math.min(100,v*20)}%"></div></div>
+    </div>`).join('') || '<div style="color:var(--text3);font-size:11px">No data</div>';
+
+  const geos = {'Russia (RU)':0,'China (CN)':0,'US (US)':0,'Netherlands (NL)':0,'Internal':0};
+  LOG.forEach(e=>{const ip=e.srcip||'';if(ip.startsWith('185.220')||ip.startsWith('193.32'))geos['Russia (RU)']++;else if(ip.startsWith('45.'))geos['China (CN)']++;else if(ip.startsWith('203.'))geos['Netherlands (NL)']++;else if(ip.startsWith('10.')||ip.startsWith('192.168'))geos['Internal']++;else geos['US (US)']++;});
+  const geoEl = document.getElementById('geo-dist');
+  if (geoEl) geoEl.innerHTML = Object.entries(geos).filter(([k,v])=>v>0).map(([k,v])=>`
+    <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px">
+      <span style="color:var(--text)">${k}</span>
+      <span style="${k!=='Internal'?'color:var(--amber)':'color:var(--green)'};font-weight:700">${v}</span>
+    </div>`).join('') || '<div style="color:var(--text3);font-size:11px">No data</div>';
+}
+
+function renderCompliance() {
+  const total = LOG.length, crits = LOG.filter(e=>e.severity==='CRITICAL').length;
+  const tampered = LOG.filter(e=>e.tampered).length;
+  const intScore = total ? Math.round(((total-tampered)/total)*100) : 100;
+  const frameworks = [
+    {name:'SOC 2 Type II',score:intScore,req:'Immutable audit trail, access controls',status:intScore>90?'COMPLIANT':'REVIEW'},
+    {name:'ISO 27001',score:Math.min(100,intScore+3),req:'Information security event logging',status:intScore>85?'COMPLIANT':'NON-COMPLIANT'},
+    {name:'GDPR Art.32',score:crits>5?60:85,req:'Appropriate technical security measures',status:crits>5?'REVIEW':'COMPLIANT'},
+    {name:'PCI-DSS 10',score:intScore,req:'Log all access to cardholder data',status:intScore>95?'COMPLIANT':'REVIEW'},
+    {name:'HIPAA §164.312',score:Math.min(100,intScore+5),req:'Audit controls, access logging',status:intScore>90?'COMPLIANT':'REVIEW'},
+    {name:'NIST CSF',score:Math.min(100,intScore+2),req:'Detect, Respond, Recover functions',status:intScore>80?'COMPLIANT':'PARTIAL'},
+  ];
+  const el = document.getElementById('compliance-grid');
+  if (el) el.innerHTML = frameworks.map(f=>`
+    <div class="comp-item">
+      <div class="comp-name">${f.name}</div>
+      <div class="comp-score" style="color:${f.score>90?'var(--green)':f.score>70?'var(--amber)':'var(--red)'}">${f.score}%</div>
+      <div class="comp-bar"><div class="comp-fill" style="width:${f.score}%;background:${f.score>90?'var(--green)':f.score>70?'var(--amber)':'var(--red)'}"></div></div>
+      <div class="comp-status" style="color:${f.status==='COMPLIANT'?'var(--green)':f.status==='REVIEW'?'var(--amber)':'var(--red)'}">● ${f.status}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">${f.req}</div>
+    </div>`).join('');
+
+  const atEl = document.getElementById('audit-trail');
+  if (atEl) atEl.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:4px">TOTAL ENTRIES</div>
+        <div style="font-size:20px;font-weight:700;color:var(--cyan)">${total}</div>
+        <div style="font-size:10px;color:var(--text3)">All events logged</div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:4px">CHAIN INTEGRITY</div>
+        <div style="font-size:20px;font-weight:700;color:${intScore===100?'var(--green)':'var(--red)'}">${intScore}%</div>
+        <div style="font-size:10px;color:var(--text3)">${tampered} tampered</div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:4px">CRITICAL EVENTS</div>
+        <div style="font-size:20px;font-weight:700;color:var(--red)">${crits}</div>
+        <div style="font-size:10px;color:var(--text3)">Require investigation</div>
+      </div>
+    </div>`;
+}
+
+function renderThreatBreakdown() {
+  const cats = {};
+  LOG.forEach(e => { cats[e.category]=(cats[e.category]||0)+1; });
+  const el = document.getElementById('threat-breakdown');
+  if (!el) return;
+  const total = LOG.length || 1;
+  const colors = {AUTH:'var(--blue)',NETWORK:'var(--cyan)',MALWARE:'var(--red)',EXFIL:'var(--red)',PRIV_ESC:'var(--amber)',RECON:'var(--purple)',POLICY:'var(--text2)',SYSTEM:'var(--green)'};
+  el.innerHTML = Object.entries(cats).map(([k,v])=>`
+    <div style="padding:6px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
+        <span style="color:${colors[k]||'var(--text2)'};font-weight:500">${k}</span>
+        <span style="color:var(--text2)">${v} (${Math.round(v/total*100)}%)</span>
+      </div>
+      <div style="height:3px;background:var(--bg4);border-radius:2px"><div style="height:100%;border-radius:2px;background:${colors[k]||'var(--text3)'};width:${Math.round(v/total*100)}%"></div></div>
+    </div>`).join('') || '<div style="color:var(--text3);font-size:11px">No data</div>';
+}
+
+// Right panel
+const activeThreatsData = [
+  {icon:'◈',desc:'Cobalt Strike C2 active — workstation ws-bob',sub:'Linked to entry #4',time:'2min ago',color:'red'},
+  {icon:'⚠',desc:'Kerberoasting in progress — 14 SPN requests',sub:'Credential Access (T1558.003)',time:'5min ago',color:'red'},
+  {icon:'↑',desc:'Data exfiltration to 185.220.101.47',sub:'1.8GB transferred',time:'8min ago',color:'red'},
+  {icon:'~',desc:'DNS tunneling suspected on segment /24',sub:'847 req/min (baseline: 12)',time:'12min ago',color:'amber'},
+];
+
+function renderActiveThreats() {
+  const el = document.getElementById('active-threats');
+  if (!el) return;
+  el.innerHTML = activeThreatsData.map(t=>`
+    <div class="threat-item">
+      <span class="threat-icon" style="color:var(--${t.color})">${t.icon}</span>
+      <div>
+        <div class="threat-desc">${t.desc}</div>
+        <div class="threat-src">${t.sub}</div>
+        <div class="threat-time">${t.time}</div>
+      </div>
+    </div>`).join('');
+}
+
+const anomalyQueue = [];
+function addAnomalyFeed(item) {
+  anomalyQueue.unshift(item);
+  if (anomalyQueue.length > 20) anomalyQueue.pop();
+  renderAnomalyFeed();
+}
+
+function renderAnomalyFeed() {
+  const el = document.getElementById('anomaly-feed');
+  if (!el) return;
+  el.innerHTML = anomalyQueue.map(a=>`
+    <div class="af-item ${a.severity}">
+      <div class="af-top"><span class="af-type">${a.type}</span><span class="af-time">${new Date(a.ts).toLocaleTimeString()}</span></div>
+      <div class="af-desc">${a.desc}</div>
+    </div>`).join('') || '<div style="color:var(--text3);font-size:11px;padding:8px">No anomalies detected</div>';
+}
+
+// ============================================================
+// METRICS
+// ============================================================
+function updateAllMetrics() {
+  const total = LOG.length;
+  const crits = LOG.filter(e=>e.severity==='CRITICAL').length;
+  const brutes = LOG.filter(e=>e.category==='AUTH'&&(e.severity==='HIGH'||e.severity==='MEDIUM')&&e.desc.toLowerCase().includes('fail')).length;
+  const exfils = LOG.filter(e=>e.category==='EXFIL').length;
+  const tampered = LOG.filter(e=>e.tampered).length;
+  const intScore = total ? Math.round(((total-tampered)/total)*100) : 100;
+
+  document.getElementById('mc-events').textContent = total;
+  document.getElementById('mc-critical').textContent = crits;
+  document.getElementById('mc-brute').textContent = brutes;
+  document.getElementById('mc-exfil').textContent = exfils;
+  const fileActCount = ACTIVITY_LOG.filter(a=>a.evtType.startsWith('file-')).length;
+  const blockedCount = ACTIVITY_LOG.filter(a=>a.decision==='blocked').length;
+  const el_fa = document.getElementById('mc-fileact'); if(el_fa) el_fa.textContent = fileActCount;
+  const el_bl = document.getElementById('mc-blocked'); if(el_bl) el_bl.textContent = blockedCount;
+  document.getElementById('total-entries').textContent = total;
+  document.getElementById('threat-count').textContent = crits;
+  document.getElementById('ss-entries').textContent = total;
+  document.getElementById('ss-verified').textContent = total - tampered;
+  document.getElementById('ss-tampered').textContent = tampered;
+  document.getElementById('ss-critical').textContent = crits;
+  document.getElementById('ss-integrity').textContent = intScore+'%';
+  document.getElementById('ss-integrity').className = 'ss-val '+(intScore===100?'ok':intScore>80?'warn':'bad');
+  const nb = document.getElementById('nav-badge-logs');
+  if (nb) { nb.textContent = crits; nb.style.display = crits?'inline':'none'; }
+  const ip = document.getElementById('incident-pill');
+  if (ip) { if(crits>0){ip.style.display='flex';document.getElementById('incident-count').textContent=crits+' ACTIVE INCIDENTS';}else{ip.style.display='none';} }
+  renderThreatBreakdown();
+  renderAllLogs();
+}
+
+function updateGlobalStatus(type, msg) {
+  const el = document.getElementById('global-status');
+  const txt = document.getElementById('global-status-text');
+  if (!el||!txt) return;
+  el.className = 'status-pill ' + type;
+  txt.textContent = msg;
+  el.querySelector('.dot').className = 'dot pulse';
+}
+
+// ============================================================
+// TABS
+// ============================================================
+const TABS = ['dashboard','livemon','logs','threats','network','integrity','compliance','attacks','addentry'];
+function switchTab(name) {
+  TABS.forEach(t=>{
+    document.getElementById('tab-'+t)?.classList.toggle('active',t===name);
+    document.getElementById('content-'+t)?.classList.toggle('active',t===name);
+  });
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if (name==='dashboard') renderAllLogs();
+  if (name==='logs') renderFullLog();
+  if (name==='threats') renderThreats();
+  if (name==='network') renderNetworkTab();
+  if (name==='integrity') renderIntegrity();
+  if (name==='compliance') renderCompliance();
+  if (name==='attacks') renderAttacks();
+  if (name==='livemon') { renderPcList(); renderBlockedTable(); renderRiskGauge(); }
+}
+
+// ============================================================
+// MANUAL ADD
+// ============================================================
+async function addManualEntry() {
+  const entry = {
+    category: document.getElementById('f-cat').value,
+    severity: document.getElementById('f-sev').value,
+    srcip: document.getElementById('f-ip').value,
+    user: document.getElementById('f-user').value,
+    dest: document.getElementById('f-dest').value,
+    proto: document.getElementById('f-proto').value,
+    desc: document.getElementById('f-desc').value,
+    ctx: document.getElementById('f-ctx').value,
+  };
+  const e = await appendEntry(entry);
+  addAnomalyFeed({type:entry.category, severity:entry.severity==='CRITICAL'||entry.severity==='HIGH'?'crit':'warn', desc:entry.desc, ts:e.ts});
+  notify('ok', `Entry #${e.seq} appended — ${e.severity} ${e.category} event`);
+  if (entry.severity==='CRITICAL') updateGlobalStatus('crit','CRITICAL EVENT LOGGED');
+  renderAllLogs();
+}
+
+function clearForm() {
+  ['f-ip','f-user','f-dest','f-proto','f-desc','f-ctx'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+}
+
+function exportLog() {
+  const data = JSON.stringify({exported:new Date().toISOString(),entries:LOG},null,2);
+  const blob = new Blob([data],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');a.href=url;a.download='audit_log_export.json';a.click();
+  notify('ok','Log exported as JSON');
+}
+
+// ============================================================
+// NOTIFY
+// ============================================================
+function notify(type, msg) {
+  const el = document.getElementById('notify');
+  el.className='notify '+type;
+  el.style.display='block';
+  el.textContent=msg;
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>{el.style.display='none';},5000);
+}
+
+// ============================================================
+// CLOCK
+// ============================================================
+function updateClock() {
+  document.getElementById('clock').textContent = new Date().toUTCString().slice(17,25);
+}
+setInterval(updateClock,1000);updateClock();
+
+// ============================================================
+// NETWORK MAP (Canvas)
+// ============================================================
+function drawNetworkMap() {
+  const canvas = document.getElementById('netcanvas');
+  if (!canvas) return;
+  const container = document.getElementById('netmap');
+  canvas.width = container.offsetWidth;
+  canvas.height = container.offsetHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const W=canvas.width, H=canvas.height;
+  const nodes = [
+    {id:'FW',x:0.5,y:0.15,label:'Firewall',status:'ok'},
+    {id:'DMZ',x:0.5,y:0.38,label:'DMZ',status:'warn'},
+    {id:'WEB',x:0.2,y:0.55,label:'Web Server',status:'ok'},
+    {id:'DB',x:0.5,y:0.72,label:'DB Cluster',status:'warn'},
+    {id:'AD',x:0.8,y:0.55,label:'AD/LDAP',status:'bad'},
+    {id:'C2',x:0.88,y:0.2,label:'C2 (IOC)',status:'bad'},
+    {id:'EXT',x:0.12,y:0.2,label:'Internet',status:'warn'},
+  ];
+  const edges=[['EXT','FW'],['C2','FW'],['FW','DMZ'],['DMZ','WEB'],['DMZ','DB'],['DMZ','AD'],['AD','DB']];
+  const colors={ok:'#00ff87',warn:'#ffaa00',bad:'#ff3b5c'};
+  edges.forEach(([a,b])=>{
+    const na=nodes.find(n=>n.id===a),nb=nodes.find(n=>n.id===b);
+    if(!na||!nb)return;
+    ctx.beginPath();ctx.moveTo(na.x*W,na.y*H);ctx.lineTo(nb.x*W,nb.y*H);
+    ctx.strokeStyle=na.status==='bad'||nb.status==='bad'?'rgba(255,59,92,0.4)':'rgba(255,255,255,0.08)';
+    ctx.lineWidth=1;ctx.stroke();
+  });
+  nodes.forEach(n=>{
+    const x=n.x*W,y=n.y*H,c=colors[n.status];
+    ctx.beginPath();ctx.arc(x,y,8,0,Math.PI*2);ctx.fillStyle=c+'33';ctx.fill();
+    ctx.beginPath();ctx.arc(x,y,5,0,Math.PI*2);ctx.fillStyle=c;ctx.fill();
+    ctx.fillStyle='rgba(226,230,243,0.7)';ctx.font='10px JetBrains Mono,monospace';ctx.textAlign='center';ctx.fillText(n.label,x,y+18);
+  });
+}
+
+// ============================================================
+// LIVE MONITOR — PC Activity Tracking Engine
+// ============================================================
+const ACTIVITY_LOG = [];
+let actFilter = 'all';
+let blockedIPs = {};
+let pcEndpoints = [
+  {id:'ws-alice', name:'workstation-alice', ip:'10.0.0.22', user:'alice@corp.com', status:'online', events:0},
+  {id:'ws-bob',   name:'workstation-bob',   ip:'10.0.0.88', user:'bob@corp.com',   status:'compromised', events:0},
+  {id:'ws-carol', name:'workstation-carol', ip:'10.0.0.91', user:'carol@corp.com', status:'warning', events:0},
+  {id:'ws-dave',  name:'workstation-dave',  ip:'10.0.0.77', user:'dave@corp.com',  status:'online', events:0},
+  {id:'srv-db01', name:'db-prod-01',        ip:'10.0.0.100',user:'svc_sql',        status:'warning', events:0},
+  {id:'srv-web',  name:'web-server-01',     ip:'10.0.0.55', user:'www-data',       status:'online', events:0},
+];
+
+const FILE_PATHS = [
+  '/etc/passwd','/etc/shadow','/var/log/auth.log','/home/bob/.ssh/id_rsa',
+  'C:\\Windows\\System32\\SAM','C:\\Users\\bob\\Documents\\passwords.xlsx',
+  '/opt/app/config/database.yml','/var/backups/db_dump_2024.sql',
+  'C:\\Users\\carol\\Desktop\\client_data.csv','/etc/ssl/private/server.key',
+  '/home/alice/src/payroll_report.pdf','C:\\ProgramData\\secrets.json',
+];
+const PROC_NAMES = ['cmd.exe','powershell.exe','python3','nmap','mimikatz.exe','nc.exe','wget','curl','scp','rsync','psexec.exe'];
+const REG_KEYS = [
+  'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
+  'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce',
+  'HKLM\\SYSTEM\\CurrentControlSet\\Services',
+];
+const C2_IPS = ['185.220.101.47','193.32.162.91','45.142.212.100','91.108.4.18','178.73.215.171'];
+
+const EVT_TYPES = {
+  'file-read':  {icon:'📄', label:'File Read',      sev:'INFO', cat:'SYSTEM'},
+  'file-write': {icon:'✏️', label:'File Modified',  sev:'MEDIUM', cat:'SYSTEM'},
+  'file-delete':{icon:'🗑️', label:'File Deleted',   sev:'HIGH', cat:'SYSTEM'},
+  'file-exec':  {icon:'⚡', label:'File Executed',  sev:'HIGH', cat:'MALWARE'},
+  'net-out':    {icon:'🌐', label:'Network Outbound',sev:'HIGH', cat:'NETWORK'},
+  'net-in':     {icon:'📡', label:'Network Inbound', sev:'MEDIUM', cat:'NETWORK'},
+  'auth-evt':   {icon:'🔑', label:'Auth Event',      sev:'MEDIUM', cat:'AUTH'},
+  'proc-spawn': {icon:'⚙️', label:'Process Spawn',   sev:'MEDIUM', cat:'SYSTEM'},
+  'reg-mod':    {icon:'🔧', label:'Registry Modified',sev:'HIGH', cat:'SYSTEM'},
+};
+
+let actEventIdCounter = 0;
+
+async function addActivityEvent(evtType, opts={}) {
+  const pc = opts.pc || pcEndpoints[Math.floor(Math.random()*pcEndpoints.length)];
+  const def = EVT_TYPES[evtType];
+  const id = ++actEventIdCounter;
+  const isHighRisk = ['file-delete','file-exec','net-out','reg-mod'].includes(evtType);
+  const isThreat = opts.threat || (isHighRisk && Math.random() > 0.5);
+
+  const evt = {
+    id, evtType, ts: new Date().toISOString(),
+    icon: def.icon, label: def.label,
+    ip: opts.ip || pc.ip, user: opts.user || pc.user, device: pc.name,
+    pid: opts.pid || Math.floor(Math.random()*30000+1000),
+    path: opts.path || FILE_PATHS[Math.floor(Math.random()*FILE_PATHS.length)],
+    dest: opts.dest || null,
+    process: opts.process || PROC_NAMES[Math.floor(Math.random()*3)],
+    severity: opts.severity || def.sev,
+    category: def.cat,
+    threat: isThreat,
+    decision: opts.autoBlock ? 'blocked' : (isHighRisk && isThreat ? 'pending' : 'allowed'),
+    desc: opts.desc || buildDesc(evtType, pc, opts),
+  };
+
+  // Update PC event count
+  pc.events++;
+  if (isThreat && pc.status === 'online') pc.status = 'warning';
+  if (opts.autoBlock || (evtType==='net-out' && C2_IPS.includes(evt.dest))) {
+    evt.decision = 'blocked';
+    blockedIPs[evt.ip] = (blockedIPs[evt.ip]||{count:0, reason:'', ts:''});
+    blockedIPs[evt.ip].count++;
+    blockedIPs[evt.ip].reason = `${def.label} to ${evt.dest||'C2'}`;
+    blockedIPs[evt.ip].ts = evt.ts;
+    pc.status = 'compromised';
+  }
+
+  ACTIVITY_LOG.unshift(evt);
+  if (ACTIVITY_LOG.length > 200) ACTIVITY_LOG.pop();
+
+  // Log to tamper-evident chain
+  const chainEntry = {
+    category: def.cat,
+    severity: evt.severity,
+    srcip: evt.ip,
+    user: evt.user,
+    dest: evt.dest || evt.path || 'local',
+    proto: evtType.startsWith('net') ? 'TCP/HTTPS' : 'LOCAL',
+    desc: evt.desc,
+    ctx: `pid:${evt.pid}, device:${evt.device}, type:${evtType}, decision:${evt.decision}`,
+  };
+  await appendEntry(chainEntry);
+
+  renderActivityFeed();
+  renderPcList();
+  renderRiskGauge();
+  renderBlockedTable();
+  updateLiveMonStats();
+  updateAllMetrics();
+
+  // Show alert banner for critical events
+  if (evt.threat && (evtType==='net-out'||evtType==='file-delete'||evtType==='file-exec')) {
+    showLmAlert('crit', `🚨 ${def.label} detected from ${evt.ip} (${evt.user}) — ${evt.decision==='blocked'?'BLOCKED':'Pending Review'}`);
+  }
+
+  return evt;
+}
+
+function buildDesc(evtType, pc, opts) {
+  const path = opts.path || FILE_PATHS[Math.floor(Math.random()*FILE_PATHS.length)];
+  const dest = opts.dest || C2_IPS[Math.floor(Math.random()*C2_IPS.length)];
+  const proc = opts.process || PROC_NAMES[Math.floor(Math.random()*PROC_NAMES.length)];
+  const maps = {
+    'file-read':   `File read: ${path}`,
+    'file-write':  `File modified: ${path}`,
+    'file-delete': `File deleted: ${path} — possible evidence destruction`,
+    'file-exec':   `Suspicious executable: ${proc} — unauthorized execution detected`,
+    'net-out':     `Outbound connection to ${dest}:443 — possible exfiltration attempt`,
+    'net-in':      `Inbound connection from ${dest} — scanning probe detected`,
+    'auth-evt':    `Authentication event on ${pc.name} by ${pc.user}`,
+    'proc-spawn':  `Process spawned: ${proc} (PID:${opts.pid||Math.floor(Math.random()*30000)})`,
+    'reg-mod':     `Registry modified: ${REG_KEYS[Math.floor(Math.random()*REG_KEYS.length)]}`,
+  };
+  return maps[evtType] || `Unknown activity on ${pc.name}`;
+}
+
+function renderActivityFeed() {
+  const el = document.getElementById('activity-stream');
+  if (!el) return;
+  const cnt = document.getElementById('lm-event-count');
+  if (cnt) cnt.textContent = ACTIVITY_LOG.length;
+
+  const filtered = actFilter==='all' ? ACTIVITY_LOG : ACTIVITY_LOG.filter(a=>a.evtType===actFilter);
+  if (!filtered.length) { el.innerHTML='<div style="padding:20px;text-align:center;color:var(--text3);font-size:12px">No events match filter</div>'; return; }
+
+  el.innerHTML = filtered.map(evt => {
+    const stateClass = evt.decision==='blocked'?'blocked-state':evt.decision==='allowed'?'allowed-state':evt.decision==='pending'?'pending':'';
+    const timeStr = new Date(evt.ts).toLocaleTimeString();
+    const controls = evt.decision==='pending'
+      ? `<div class="act-controls"><button class="btn-allow" onclick="decideActivity(${evt.id},'allowed')">✓ Allow</button><button class="btn-block" onclick="decideActivity(${evt.id},'blocked')">✗ Block</button></div>`
+      : `<div class="act-controls"><span class="decision-badge ${evt.decision}">${evt.decision==='blocked'?'✗ BLOCKED':'✓ ALLOWED'}</span></div>`;
+    const threatTag = evt.threat ? `<span class="act-tag" style="background:rgba(255,59,92,0.15);color:var(--red)">⚠ THREAT</span>` : '';
+    return `<div class="act-item ${evt.evtType} ${stateClass}" onclick="selectActivity(${evt.id})">
+      <div class="act-icon ${evt.evtType}">${evt.icon}</div>
+      <div class="act-body">
+        <div class="act-title">${evt.label}</div>
+        <div class="act-path" title="${evt.path||evt.dest||''}">${evt.path||evt.dest||evt.process||'—'}</div>
+        <div class="act-meta">
+          <span class="act-tag act-ip">${evt.ip}</span>
+          <span class="act-tag act-user">${evt.user}</span>
+          <span class="act-tag act-pid">PID:${evt.pid}</span>
+          ${threatTag}
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">${evt.desc}</div>
+      </div>
+      ${controls}
+    </div>`;
+  }).join('');
+}
+
+function decideActivity(id, decision) {
+  const evt = ACTIVITY_LOG.find(a=>a.id===id);
+  if (!evt) return;
+  evt.decision = decision;
+  if (decision === 'blocked') {
+    blockedIPs[evt.ip] = (blockedIPs[evt.ip]||{count:0, reason:'', ts:''});
+    blockedIPs[evt.ip].count++;
+    blockedIPs[evt.ip].reason = evt.label;
+    blockedIPs[evt.ip].ts = evt.ts;
+    notify('bad', `🛡️ Blocked: ${evt.ip} (${evt.user}) — ${evt.label}`);
+    updateGlobalStatus('crit', `IP BLOCKED: ${evt.ip}`);
+  } else {
+    notify('ok', `✓ Allowed: ${evt.ip} — ${evt.label}`);
+  }
+  renderActivityFeed();
+  renderBlockedTable();
+  updateLiveMonStats();
+  updateAllMetrics();
+}
+
+function selectActivity(id) {
+  const evt = ACTIVITY_LOG.find(a=>a.id===id);
+  if (!evt) return;
+  // show detail in log detail panel by finding the corresponding chain entry
+  const chainEntry = LOG.slice().reverse().find(e=>e.srcip===evt.ip && e.desc.includes(evt.label.split(' ')[0]));
+  if (chainEntry) {
+    switchTab('logs');
+    setTimeout(()=>showDetail(chainEntry), 100);
+  }
+}
+
+function setActFilter(filter, el) {
+  actFilter = filter;
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  renderActivityFeed();
+}
+
+function renderPcList() {
+  const el = document.getElementById('pc-list');
+  if (!el) return;
+  el.innerHTML = pcEndpoints.map(pc=>`
+    <div class="pc-item">
+      <div class="pc-dot ${pc.status}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="pc-name">${pc.name}</div>
+        <div class="pc-ip-label">${pc.ip} · ${pc.user}</div>
+      </div>
+      <span class="pc-events ${pc.status==='online'?'ok':pc.status==='warning'?'warn':'bad'}">${pc.events} evt</span>
+    </div>`).join('');
+}
+
+function renderBlockedTable() {
+  const el = document.getElementById('blocked-ip-table');
+  const cnt = document.getElementById('blocked-count');
+  if (!el) return;
+  const entries = Object.entries(blockedIPs);
+  if (cnt) cnt.textContent = entries.length;
+  if (!entries.length) { el.innerHTML='<div style="color:var(--text3);font-size:11px;padding:4px 0">No sources blocked yet.</div>'; return; }
+  el.innerHTML = `
+    <div class="blocked-row" style="font-size:10px;color:var(--text3);border-bottom:1px solid var(--border);padding-bottom:4px">
+      <span>IP Address</span><span>Reason</span><span>Count</span><span>Action</span>
+    </div>` +
+    entries.map(([ip,data])=>`
+    <div class="blocked-row">
+      <span style="color:var(--red);font-family:var(--font-mono)">${ip}</span>
+      <span style="color:var(--text2)">${data.reason}</span>
+      <span style="color:var(--amber);font-weight:700">${data.count}x</span>
+      <span><button onclick="unblockIP('${ip}')" style="background:none;border:1px solid var(--border);color:var(--text3);border-radius:4px;font-size:10px;padding:2px 6px;cursor:pointer;font-family:var(--font-mono)">Unblock</button></span>
+    </div>`).join('');
+}
+
+function unblockIP(ip) {
+  delete blockedIPs[ip];
+  ACTIVITY_LOG.filter(a=>a.ip===ip && a.decision==='blocked').forEach(a=>a.decision='allowed');
+  renderBlockedTable();
+  renderActivityFeed();
+  updateLiveMonStats();
+  notify('ok', `Unblocked IP: ${ip}`);
+}
+
+function renderRiskGauge() {
+  const total = ACTIVITY_LOG.length || 1;
+  const fileExfil = Math.min(100, Math.round(ACTIVITY_LOG.filter(a=>a.evtType==='file-delete'||a.evtType==='file-exec').length / total * 400));
+  const netExfil = Math.min(100, Math.round(ACTIVITY_LOG.filter(a=>a.evtType==='net-out'&&a.threat).length / total * 500));
+  const authAbuse = Math.min(100, Math.round(ACTIVITY_LOG.filter(a=>a.evtType==='auth-evt'&&a.threat).length / total * 400));
+  const privEsc = Math.min(100, Math.round(LOG.filter(e=>e.category==='PRIV_ESC').length / (LOG.length||1) * 400));
+  const malware = Math.min(100, Math.round(LOG.filter(e=>e.category==='MALWARE').length / (LOG.length||1) * 400));
+  const setR = (id, v) => {
+    const b = document.getElementById('risk-'+id); if(b) b.style.width=v+'%';
+    const t = document.getElementById('risk-'+id+'-val'); if(t) t.textContent=v+'%';
+  };
+  setR('fileexfil',fileExfil); setR('netexfil',netExfil); setR('auth',authAbuse); setR('privesc',privEsc); setR('malware',malware);
+}
+
+function updateLiveMonStats() {
+  const fileC = document.getElementById('lm-file-cnt'); if(fileC) fileC.textContent = ACTIVITY_LOG.filter(a=>a.evtType.startsWith('file-')).length;
+  const netC = document.getElementById('lm-net-cnt'); if(netC) netC.textContent = ACTIVITY_LOG.filter(a=>a.evtType.startsWith('net-')).length;
+  const pendC = document.getElementById('lm-pending-cnt'); if(pendC) pendC.textContent = ACTIVITY_LOG.filter(a=>a.decision==='pending').length;
+  const blkC = document.getElementById('lm-blocked-cnt'); if(blkC) blkC.textContent = ACTIVITY_LOG.filter(a=>a.decision==='blocked').length;
+  const nb = document.getElementById('nav-badge-livemon');
+  const pending = ACTIVITY_LOG.filter(a=>a.decision==='pending').length;
+  if (nb) { nb.textContent=pending; nb.style.display=pending?'inline':'none'; }
+}
+
+function showLmAlert(type, msg) {
+  ['lm-alerts','dash-alerts'].forEach(containerId=>{
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const div = document.createElement('div');
+    div.className = `alert-banner ${type}`;
+    div.innerHTML = `<span>${msg}</span><span class="alert-close" onclick="this.parentElement.remove()">✕</span>`;
+    container.insertBefore(div, container.firstChild);
+    if (container.children.length > 3) container.lastElementChild.remove();
+    setTimeout(()=>div.remove(), 12000);
+  });
+}
+
+function clearActivityFeed() {
+  ACTIVITY_LOG.length = 0;
+  renderActivityFeed();
+  updateLiveMonStats();
+  notify('ok','Activity feed cleared');
+}
+
+function blockAllPending() {
+  const pending = ACTIVITY_LOG.filter(a=>a.decision==='pending');
+  pending.forEach(a=>{ a.decision='blocked'; blockedIPs[a.ip]=(blockedIPs[a.ip]||{count:0,reason:'',ts:''}); blockedIPs[a.ip].count++; blockedIPs[a.ip].reason=a.label; blockedIPs[a.ip].ts=a.ts; });
+  renderActivityFeed(); renderBlockedTable(); updateLiveMonStats();
+  notify('bad', `Blocked ${pending.length} pending events`);
+}
+
+// ── Simulation helpers ──
+async function simFileRead() { await addActivityEvent('file-read', {path:FILE_PATHS[Math.floor(Math.random()*5)]}); }
+async function simFileWrite() { await addActivityEvent('file-write', {path:FILE_PATHS[Math.floor(Math.random()*FILE_PATHS.length)], severity:'MEDIUM', threat:true}); }
+async function simNetExfil() {
+  const dest = C2_IPS[Math.floor(Math.random()*C2_IPS.length)];
+  await addActivityEvent('net-out', {dest, threat:true, severity:'CRITICAL', autoBlock:true,
+    desc:`Outbound data transfer to known C2 server ${dest}:443 — exfiltration attempt detected`});
+}
+async function simProcSpawn() {
+  const proc = PROC_NAMES[Math.floor(Math.random()*PROC_NAMES.length)];
+  await addActivityEvent('proc-spawn', {process:proc, threat:proc.includes('mimikatz')||proc.includes('psexec'), severity:'HIGH'});
+}
+async function simPrivEsc() {
+  const pc = pcEndpoints.find(p=>p.id==='ws-bob')||pcEndpoints[0];
+  await addActivityEvent('file-exec', {pc, path:'C:\\Windows\\Temp\\privesc.exe', process:'privesc.exe', threat:true, severity:'CRITICAL',
+    desc:'Privilege escalation tool executed — attempting SYSTEM access via token impersonation'});
+}
+async function simRegMod() {
+  await addActivityEvent('reg-mod', {path:REG_KEYS[Math.floor(Math.random()*REG_KEYS.length)], threat:true, severity:'HIGH'});
+}
+async function simExfilBurst() {
+  const pc = pcEndpoints.find(p=>p.status==='compromised')||pcEndpoints[1];
+  showLmAlert('crit','🚨 EXFILTRATION BURST DETECTED — Multiple data theft vectors active simultaneously!');
+  await addActivityEvent('file-read', {pc, path:'/home/bob/.ssh/id_rsa', threat:true});
+  await new Promise(r=>setTimeout(r,200));
+  await addActivityEvent('file-read', {pc, path:'C:\\Users\\bob\\Documents\\passwords.xlsx', threat:true});
+  await new Promise(r=>setTimeout(r,200));
+  await addActivityEvent('net-out', {pc, dest:'185.220.101.47', threat:true, severity:'CRITICAL', autoBlock:true,
+    desc:'Mass data exfil: SSH keys + credentials sent to C2 185.220.101.47'});
+  await new Promise(r=>setTimeout(r,200));
+  await addActivityEvent('file-delete', {pc, path:'/var/log/auth.log', threat:true, severity:'CRITICAL',
+    desc:'Evidence destruction: auth log deleted after exfil attempt'});
+  await new Promise(r=>setTimeout(r,200));
+  await addActivityEvent('proc-spawn', {pc, process:'mimikatz.exe', threat:true, severity:'CRITICAL',
+    desc:'Credential harvesting tool executed — all cached credentials at risk'});
+  updateGlobalStatus('crit','ACTIVE EXFILTRATION — IMMEDIATE ACTION REQUIRED');
+}
+
+// Auto-spawn realistic PC events every 6 seconds
+setInterval(async ()=>{
+  const types = ['file-read','file-read','file-read','file-write','auth-evt','proc-spawn','net-in','file-read','file-write','net-out'];
+  const t = types[Math.floor(Math.random()*types.length)];
+  const pc = pcEndpoints[Math.floor(Math.random()*pcEndpoints.length)];
+  const isNormal = t==='file-read' || t==='auth-evt' || t==='net-in';
+  await addActivityEvent(t, {pc, threat: !isNormal && Math.random()>0.7, severity: isNormal?'INFO':'MEDIUM'});
+}, 6000);
+
+// ============================================================
+// INIT
+// ============================================================
+async function init() {
+  for (const s of SEED_EVENTS) {
+    await appendEntry(s);
+    await new Promise(r=>setTimeout(r,20));
+  }
+  renderActiveThreats();
+  SEED_EVENTS.forEach(e=>addAnomalyFeed({type:e.category,severity:e.severity==='CRITICAL'||e.severity==='HIGH'?'crit':'warn',desc:e.desc,ts:new Date().toISOString()}));
+
+  // Seed initial PC activity events (silent, no alerts)
+  const seedActs = [
+    {type:'file-read',  opts:{pc:pcEndpoints[0], path:'/home/alice/src/payroll_report.pdf', threat:false, severity:'INFO'}},
+    {type:'auth-evt',   opts:{pc:pcEndpoints[3], threat:false, severity:'INFO'}},
+    {type:'file-write', opts:{pc:pcEndpoints[1], path:'C:\\Users\\bob\\Documents\\passwords.xlsx', threat:true, severity:'MEDIUM'}},
+    {type:'net-out',    opts:{pc:pcEndpoints[1], dest:'185.220.101.47', threat:true, severity:'CRITICAL', autoBlock:true, desc:'Outbound data transfer to known C2 server 185.220.101.47:443 — exfiltration attempt detected'}},
+    {type:'file-exec',  opts:{pc:pcEndpoints[1], path:'C:\\Windows\\Temp\\mimikatz.exe', process:'mimikatz.exe', threat:true, severity:'CRITICAL', desc:'Credential harvesting tool executed — unauthorized execution detected'}},
+    {type:'proc-spawn', opts:{pc:pcEndpoints[2], process:'nmap', threat:true, severity:'HIGH', desc:'Network scanning tool spawned — internal recon detected'}},
+    {type:'file-read',  opts:{pc:pcEndpoints[4], path:'/var/backups/db_dump_2024.sql', threat:true, severity:'HIGH', desc:'Sensitive database backup file accessed outside business hours'}},
+    {type:'reg-mod',    opts:{pc:pcEndpoints[1], path:'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run', threat:true, severity:'HIGH', desc:'Persistence mechanism: registry run key modified to autostart payload'}},
+    {type:'net-out',    opts:{pc:pcEndpoints[2], dest:'193.32.162.91', threat:true, severity:'CRITICAL', autoBlock:false, desc:'Suspicious outbound connection to known ransomware C2 — pending review'}},
+    {type:'file-delete',opts:{pc:pcEndpoints[1], path:'/var/log/auth.log', threat:true, severity:'CRITICAL', desc:'Evidence destruction: authentication log deleted after exfil attempt'}},
+  ];
+  for (const a of seedActs) {
+    await addActivityEvent(a.type, a.opts);
+    await new Promise(r=>setTimeout(r,30));
+  }
+
+  updateAllMetrics();
+  renderAllLogs();
+  renderPcList();
+  renderBlockedTable();
+  renderRiskGauge();
+  updateLiveMonStats();
+  setTimeout(drawNetworkMap, 300);
+  updateGlobalStatus('crit','ACTIVE THREATS — EXFIL DETECTED ON ws-bob');
+}
+init();
+
+// Auto-refresh network map on resize
+window.addEventListener('resize', drawNetworkMap);
+
+// Simulate live feed every 18s
+setInterval(async ()=>{
+  const liveEvents = [
+    {category:'AUTH',severity:'MEDIUM',srcip:'10.0.0.'+Math.floor(Math.random()*254),user:'svc_monitor',dest:'auth.internal',proto:'LDAP',desc:'Automated service account authentication',ctx:'scheduled: true'},
+    {category:'NETWORK',severity:'LOW',srcip:'10.0.0.1',user:'N/A',dest:'siem.internal',proto:'Syslog/514',desc:'Heartbeat log forwarding to SIEM',ctx:'events_forwarded: '+Math.floor(Math.random()*500+100)},
+    {category:'SYSTEM',severity:'INFO',srcip:'10.0.0.'+Math.floor(Math.random()*254),user:'root',dest:'N/A',proto:'LOCAL',desc:'Scheduled integrity check completed',ctx:'files_checked: '+Math.floor(Math.random()*5000+10000)},
+  ];
+  const e=liveEvents[Math.floor(Math.random()*liveEvents.length)];
+  await appendEntry(e);
+  addAnomalyFeed({type:e.category,severity:'info',desc:e.desc,ts:new Date().toISOString()});
+  renderAllLogs();
+}, 18000);
+</script>
+</body>
+</html>
